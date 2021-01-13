@@ -15,8 +15,8 @@ require('electron-reload')(__dirname + '/app/index.html', {
 
 
 function newApp() {
-  // win = new BrowserWindow({backgroundColor: "#112", width : 1024, height : 600, frame: false, x: 0, y: 0});       //<- removes border
-  win = new BrowserWindow({ backgroundColor: "#112", width : 1024, height : 600, x: 900, y: 0});
+  win = new BrowserWindow({backgroundColor: "#112", width : 1024, height : 600, frame: false, x: 0, y: 0});       //<- removes border
+  // win = new BrowserWindow({ backgroundColor: "#112", width : 1024, height : 600, x: 900, y: 0});
   win.removeMenu()
   win.loadFile('index.html');
   // win.webContents.openDevTools()  //development moode
