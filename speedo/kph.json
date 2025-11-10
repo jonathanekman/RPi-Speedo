@@ -1,1 +1,16 @@
-{"speed": 0}
+{
+  "errors": "test2",
+  "speed": 70,
+  "leftBlinker": 0,
+  "rightBlinker": 0,
+  "fuel": 67,
+  "kamera": 0,
+  "leftLight": 0,
+  "rightLight": 0,
+  "rearLight": 0,
+  "heaterTank": 5,
+  "camperVolt": 20,
+  "engineVolt": 1,
+  "coolanTemp": 40,
+  "outsideTemp": -6
+}

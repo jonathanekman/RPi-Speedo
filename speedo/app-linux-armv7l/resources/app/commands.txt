@@ -1,0 +1,4 @@
+
+
+package:
+electron-packager . app --platform=linux --overwrite
