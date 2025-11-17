@@ -145,10 +145,10 @@
         </div>
 
 
-        <label class="toggle" > 
+        <!-- <label class="toggle" > 
           <input class="toggle__input" name="" type="checkbox" id="camToggle">
           <div class="toggle__fill"></div>
-        </label>
+        </label> -->
 
 
 
@@ -183,48 +183,23 @@
 
         </div>
 
-          <!-- <input type="range" class="slider" min="1" max="100" value="50"> -->
           
 
         <nav role="navigation">
           <div id="menuToggle">
         
-            <input type="checkbox" />
-            <span></span>
-            <span></span>
-            <span></span>
         
             <ul id="menu">
-
-              <!-- <a href="#"><li>Rear Light
-              <label class="toggle" style="margin-left: 100px;">
-                <input class="toggle__input" name="" type="checkbox" id="rearToggle">
-                <div class="toggle__fill"></div>
-              </label>
-              </li></a>
-
-              <a href="#"><li>Left light 
-              <label class="toggle" style="margin-left: 100px;">
-                <input class="toggle__input" name="" type="checkbox" id="leftToggle">
-                <div class="toggle__fill" ></div>
-              </label>
-              </li></a>
-
-              <a href="#"><li>Right light
-              <label class="toggle" style="margin-left: 100px;">
-                <input class="toggle__input" name="" type="checkbox" id="rightToggle">
-                <div class="toggle__fill"></div>
-              </label>
-              </li></a> -->
 
               <div id="rgbController" style="border-radius: 50%;">
 
                 <div id="sContainer">
-                  <canvas id="slider" width="200" 
+                  <canvas id="circularSlider" width="200" 
                       height="200"></canvas>
                   <div id="sValue"></div>
                 </div>
               </div>
+
            </ul>
 
           </div>
@@ -232,10 +207,14 @@
         </nav>
 
 
+          <button id="rgbButton1" class="rgbLight"></button>
+          <button id="rgbButton2" class="rgbLight"></button>
+          <button id="rgbButton3" class="rgbLight"></button>
 
-          <button class="rgbLight">1</button>
-          <button class="rgbLight">2</button>
-          <button class="rgbLight">3</button>
+        <div class="info" id="info2">
+          ⓘ
+          <span class="extra-info" id="errors2"></span>
+        </div>          
 
       </div>
 

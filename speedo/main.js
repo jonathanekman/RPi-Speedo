@@ -45,34 +45,39 @@ let leftLight  = 0
 let rightLight = 0
 let rearLight  = 0
 
-ipcMain.on('puttonPress', (event, title) => {
-  console.log(title)
-  if (title == "cam") {
+ipcMain.on('puttonPress', (event, data) => {
+  console.log(data)
+  if (data == "cam") {
     if (camState == 1)     
         {camState = 0}
     else 
         {camState = 1}
   }
 
-  if (title == "leftOn") {  
+  if (data == "leftOn") {  
     leftLight = 1
   }
-  if (title == "leftOff") {  
+  if (data == "leftOff") {  
     leftLight = 0
   }
 
-  if (title == "rightOn") {  
-    rightLight = 1
-  }
-  if (title == "rightOff") {  
-    rightLight = 0
-  }
+  // if (data == "rightOn") {  
+  //   rightLight = 1
+  // }
+  // if (data == "rightOff") {  
+  //   rightLight = 0
+  // }
 
-  if (title == "rearOn") {  
+  if (data == "rearOn") {  
     rearLight = 1
   }
-  if (title == "rearOff") {  
+  if (data == "rearOff") {  
     rearLight = 0
+  }
+
+  // --- SLIDER HANDLING ---
+  if (typeof data === "object" && data.rightLight !== undefined) {
+    rightLight = data.rightLight;   // <-- update value
   }
 
 

@@ -51,10 +51,10 @@ const camButton = document.getElementById('camToggle')
 
 
 //const titleInput = document.getElementById('title')
-camButton.addEventListener('click', () => {
-  window.api.send("puttonPress","cam")
-  console.log('cam')
-})
+// camButton.addEventListener('click', () => {
+//   window.api.send("puttonPress","cam")
+//   console.log('cam')
+// })
 
 // leftButton.addEventListener('change', () => {
 //   if (leftButton.checked === true)
@@ -158,9 +158,12 @@ function update(){
     if (faults ) {
       document.getElementById("info").style.visibility = "visible";
       document.getElementById("errors").innerHTML = faults;
+      document.getElementById("info2").style.visibility = "visible";
+      document.getElementById("errors2").innerHTML = faults;
     }
     else {  //it is NULL
       document.getElementById("info").style.visibility = "hidden";
+      document.getElementById("info2").style.visibility = "hidden";
     }
 
 
@@ -195,7 +198,7 @@ let blue = 0;
 let value = 0;
 
 const canvas2 = 
-document.getElementById('slider');
+document.getElementById('circularSlider');
 const ctx = canvas2.getContext('2d');
 const val = 
 document.getElementById('sValue');
@@ -213,6 +216,7 @@ canvas2.addEventListener('mouseup', endFn);
 // canvas2.addEventListener('touchmove', drag);
 // canvas2.addEventListener('touchend', endFn);
 
+var activeButton = 0;
 
 function drawFn() {
 ctx.clearRect(0, 0, canvas2.width, canvas2.height);
@@ -226,6 +230,7 @@ const handleX = x + Math.cos(a) * r;
 const handleY = y + Math.sin(a) * r;
 ctx.arc(handleX, handleY, 8, 0, Math.PI * 2);
 ctx.fillStyle = 'white';
+var circleColor = 'rgb(' + red + ',' + green + ',' + blue + ')';
 ctx.fill();
 }
 function valFn() {
@@ -258,12 +263,21 @@ if (value >= 200 && value < 300)
     green = blue/2;
   }
 
-  var colour = 'rgb(' + red + ',' + green + ',' + blue + ')';
+  circleColor = 'rgb(' + red + ',' + green + ',' + blue + ')';
   // console.log("Red: " + red + ", Green: " + green + ", Blue: " + blue)
-  console.log(colour)
+  console.log(circleColor)
 
-document.getElementById("rgbController").style.backgroundColor = colour;
+document.getElementById("rgbController").style.backgroundColor = circleColor;
 
+if (activeButton === 1) {
+  document.getElementById("rgbButton1").style.backgroundColor = circleColor;
+  }
+if (activeButton === 2) {
+  document.getElementById("rgbButton2").style.backgroundColor = circleColor;
+  }
+if (activeButton === 3) {
+  document.getElementById("rgbButton3").style.backgroundColor = circleColor;
+  }
 
 
 val.textContent = `: ${value}`;
@@ -577,33 +591,293 @@ window.addEventListener("load", () => {
 
 
 
+// function deactivateOthers(except) {
+//   if (except !== 1) {
+//     rgbButton1State = false;
+//     rgbButton1.style.opacity = "0.2";
+//   }
+//   if (except !== 2) {
+//     rgbButton2State = false;
+//     rgbButton2.style.opacity = "0.2";
+//   }
+//   if (except !== 3) {
+//     rgbButton3State = false;
+//     rgbButton3.style.opacity = "0.2";
+//   }
+// }
 
-const buttons = document.querySelectorAll(".rgbLight");
+// //Button1----------------------------------------------------------------
 
-buttons.forEach(btn => {
-  let holdTimer;
+// const rgbButton1 = document.getElementById("rgbButton1");
+// const toggle = document.getElementById("menuToggle");
 
-  function startHold() {
-    btn.style.backgroundColor = "#3498db"; // color when pressed
-    holdTimer = setTimeout(() => {
-      console.log(`Button "${btn.textContent.trim()}" held for 1 second!`);
-    }, 1000);
+// let colorEditorOpen = false;
+// let rgbButton1State = false;
+
+// let holdTimer;
+// let held = false;
+// let held2 = false;
+// let held3 = false;
+
+// function startHold(e) {
+//   if (e.pointerType === "mouse" && e.button !== 0) return;
+//   held = false;
+
+//   holdTimer = setTimeout(() => {
+//     held2 = false;
+//     held3 = false;
+
+//     held = true;
+
+//     if (!colorEditorOpen) {
+//       toggle.classList.add("open");
+//       toggle.classList.remove("close");
+//       colorEditorOpen = true;
+//       activeButton = 1; 
+//     } else {
+//       toggle.classList.remove("open");
+//       toggle.classList.add("close");
+//       colorEditorOpen = false;
+//       document.getElementById("rgbButton1").style.border = "2px solid #ccc";
+//     }
+//   }, 500);
+// }
+
+// // --- cancel hold ---
+// function cancelHold() {
+//   clearTimeout(holdTimer);
+//   // console.log("cancelHold");
+
+//     if (!held) {
+//     if (rgbButton1State) {
+//         // document.getElementById("rgbButton1").textContent = "OFF";
+//       document.getElementById("rgbButton1").style.opacity = "0.2";
+//       rgbButton1State = false;
+//       // console.log("rgbButton1State OFF");
+//     } else {
+//         // document.getElementById("rgbButton1").textContent = "ON";
+//       rgbButton1State = true;
+//       deactivateOthers(1);
+//       document.getElementById("rgbButton1").style.opacity = "1";
+//       activeButton = 1;
+//     }  
+//   }
+// }
+// rgbButton1.addEventListener("pointerdown", startHold);
+// rgbButton1.addEventListener("pointerup", cancelHold);
+// rgbButton1.addEventListener("pointercancel", cancelHold);
+// // rgbbutton.addEventListener("pointerleave", cancelHold);
+
+
+
+// //Button2----------------------------------------------------------------
+
+// const rgbButton2 = document.getElementById("rgbButton2");
+// let rgbButton2State = false;
+
+// let holdTimer2;
+// // let held2 = false;
+
+// function startHold2(e) {
+//   if (e.pointerType === "mouse" && e.button !== 0) return;
+//   held2 = false;
+
+//   holdTimer2 = setTimeout(() => {
+//     held = false;
+//     held3 = false;
+//     held2 = true;
+
+//     if (!colorEditorOpen) {
+//       toggle.classList.add("open");
+//       toggle.classList.remove("close");
+//       colorEditorOpen = true;
+//       activeButton = 2;
+//     } else {
+//       toggle.classList.remove("open");
+//       toggle.classList.add("close");
+//       colorEditorOpen = false;
+//       document.getElementById("rgbButton2").style.border = "2px solid #ccc";
+//     }
+//   }, 500);
+// }
+
+// // --- cancel hold ---
+// function cancelHold2() {
+//   clearTimeout(holdTimer2);
+//   // console.log("cancelHold2");
+
+//     if (!held2) {
+//     if (rgbButton2State) {
+//         // document.getElementById("rgbButton1").textContent = "OFF";
+//       document.getElementById("rgbButton2").style.opacity = "0.2";
+//       rgbButton2State = false;
+//       // console.log("rgbButton2State OFF");
+//     } else {
+//         // document.getElementById("rgbButton1").textContent = "ON";
+//       rgbButton2State = true;
+//       deactivateOthers(2);   
+//       document.getElementById("rgbButton2").style.opacity = "1";
+//       activeButton = 2;
+//     }  
+//   }
+// }
+// rgbButton2.addEventListener("pointerdown", startHold2);
+// rgbButton2.addEventListener("pointerup", cancelHold2);
+// rgbButton2.addEventListener("pointercancel", cancelHold2);
+
+
+
+
+
+
+
+
+
+
+
+
+
+// //Button3----------------------------------------------------------------
+
+// const rgbButton3 = document.getElementById("rgbButton3");
+// let rgbButton3State = false;
+
+// let holdTimer3;
+
+// function startHold3(e) {
+//   if (e.pointerType === "mouse" && e.button !== 0) return;
+//   held3 = false;
+
+//   holdTimer3 = setTimeout(() => {
+//     held = false;
+//     held2 = false;
+//     held3 = true;
+
+//     if (!colorEditorOpen) {
+//       toggle.classList.add("open");
+//       toggle.classList.remove("close");
+//       colorEditorOpen = true;
+//       activeButton = 3;
+//     } else {
+//       toggle.classList.remove("open");
+//       toggle.classList.add("close");
+//       colorEditorOpen = false;
+//       document.getElementById("rgbButton3").style.border = "2px solid #ccc";
+//     }
+//   }, 500);
+// }
+
+// // --- cancel hold ---
+// function cancelHold3() {
+//   clearTimeout(holdTimer3);
+//   // console.log("cancelHold3");
+
+//     if (!held3) {
+//     if (rgbButton3State) {
+//         // document.getElementById("rgbButton1").textContent = "OFF";
+//       document.getElementById("rgbButton3").style.opacity = "0.2";
+//       rgbButton3State = false;
+//       // console.log("rgbButton3State OFF");
+//     } else {
+//         // document.getElementById("rgbButton1").textContent = "ON";
+//       rgbButton3State = true;
+//       deactivateOthers(3);
+//       document.getElementById("rgbButton3").style.opacity = "1";
+//       activeButton = 3;
+//     }  
+//   }
+// }
+// rgbButton3.addEventListener("pointerdown", startHold3);
+// rgbButton3.addEventListener("pointerup", cancelHold3);
+// rgbButton3.addEventListener("pointercancel", cancelHold3);
+
+
+
+
+
+class RGBButton {
+  static buttons = [];          // all instances  
+  static activeButton = null;   // index of active button
+  static editorOpen = false;    // color editor state
+  static toggle = document.getElementById("menuToggle");
+
+  constructor(id, index) {
+    this.el = document.getElementById(id);
+    this.index = index;
+    this.state = false;      // ON or OFF
+    this.held = false;
+    this.holdTimer = null;
+
+    this.el.addEventListener("pointerdown", e => this.startHold(e));
+    this.el.addEventListener("pointerup",   e => this.cancelHold(e));
+    this.el.addEventListener("pointercancel", e => this.cancelHold(e));
+
+    RGBButton.buttons.push(this);
   }
 
-  function cancelHold() {
-    btn.style.backgroundColor = ""; // reset color
-    clearTimeout(holdTimer);
+
+  startHold(e) {
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    this.held = false;
+
+    this.holdTimer = setTimeout(() => {
+      this.held = true;
+      this.toggleEditor();
+    }, 500);
   }
 
-  // Add both mouse and touch support
-  btn.addEventListener("mousedown", startHold);
-  btn.addEventListener("mouseup", cancelHold);
-  btn.addEventListener("mouseleave", cancelHold);
-  btn.addEventListener("touchstart", startHold);
-  btn.addEventListener("touchend", cancelHold);
-  btn.addEventListener("touchcancel", cancelHold);
-});
 
+  cancelHold(e) {
+    clearTimeout(this.holdTimer);
+
+    // If long held → do nothing more
+    if (this.held) return;
+
+    if (this.state) {
+      this.turnOff();
+    } else {
+      this.turnOn();
+    }
+  }
+
+
+  turnOn() {
+    this.state = true;
+    this.el.style.opacity = "1";
+
+    // Deactivate all other buttons
+    RGBButton.buttons.forEach(btn => {
+      if (btn !== this) btn.turnOff();
+    });
+
+    RGBButton.activeButton = this.index;
+    activeButton = this.index;
+
+  }
+
+  turnOff() {
+    this.state = false;
+    this.el.style.opacity = "0.2";
+  }
+
+  toggleEditor() {
+    if (!RGBButton.editorOpen) {
+      RGBButton.toggle.classList.add("open");
+      RGBButton.toggle.classList.remove("close");
+      RGBButton.editorOpen = true;
+    } else {
+      RGBButton.toggle.classList.remove("open");
+      RGBButton.toggle.classList.add("close");
+      RGBButton.editorOpen = false;
+    }
+  }
+}
+
+
+
+new RGBButton("rgbButton1", 1);
+new RGBButton("rgbButton2", 2);
+new RGBButton("rgbButton3", 3);
 
 
     // document.getElementById("leftLight").innerHTML = document.getElementById("leftLightSlider").value;
@@ -622,6 +896,19 @@ buttons.forEach(btn => {
     document.getElementById("centerLight").textContent = document.getElementById("centerLightSlider").value;
   });
 
+  // document.getElementById("rightLightSlider").addEventListener("input", () => {
+  //   document.getElementById("rightLight").textContent = document.getElementById("rightLightSlider").value;
+  // });
+
+
+
   document.getElementById("rightLightSlider").addEventListener("input", () => {
-    document.getElementById("rightLight").textContent = document.getElementById("rightLightSlider").value;
-  });
+  const slider = document.getElementById("rightLightSlider");
+  const value  = slider.value;
+
+  // Update UI text
+  document.getElementById("rightLight").textContent = value;
+
+  // Send new slider value to main
+  window.api.send("puttonPress", { rightLight: Number(value) });
+});

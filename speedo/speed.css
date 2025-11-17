@@ -581,23 +581,26 @@ transform: translate(-50%, -50%);
   */
  #menu
  {
-   position: absolute;
-   width: 400px;
-   height: 200px;
-   
-   margin-left: -20px;
-   padding: 15px;
-   top: -10px;
-   background: #8b8b8b;
-   opacity: 95%;
-   border-radius: 5% 10% 10% 10%;
+  position: absolute;
+  width: 400px;
+  height: 200px;
+  margin-left: -20px;
+  padding: 15px;
+  top: -10px;
+  background: #8b8b8b;
+  opacity: 95%;
+  border-radius: 5% 10% 10% 10%;
+  list-style-type: none;
+  -webkit-font-smoothing: antialiased;
+  transform-origin: top;
+  transform: translateY(-100%);
+  transition:
+    transform 0.5s cubic-bezier(0.77,0.2,0.05,1.0),
+    opacity 0.3s ease;
 
-   list-style-type: none;
-   -webkit-font-smoothing: antialiased;
-   /* to stop flickering of text in safari */
-   transform-origin: 0% 0%;
-   transform: translate(-100%, 0);
-   transition: transform 0.5s cubic-bezier(0.77,0.2,0.05,1.0);
+  /* hide when closed */
+  opacity: 0;
+  pointer-events: none;
  }
  
  #menu li
@@ -611,12 +614,33 @@ transform: translate(-50%, -50%);
  /*
   * And let's slide it in from the left
   */
- #menuToggle input:checked ~ ul
+ /* #menuToggle input:checked ~ ul
  {
    transform: none;
- }
+ } */
 
 /*Hamburger end*/
+#menuToggle.open #menu {
+  transform: translateY(0);
+  opacity: 1;
+  pointer-events: auto; 
+}
+
+#menuToggle.open span {
+  opacity: 1;
+  transform: rotate(45deg) translate(-2px, -1px);
+  background: #232323;
+}
+#menuToggle.open span:nth-last-child(3) {
+  opacity: 0;
+  transform: rotate(0deg) scale(0.2, 0.2);
+}
+#menuToggle.open span:nth-last-child(2) {
+  transform: rotate(-45deg) translate(0, -1px);
+}
+
+
+
 
 
 
@@ -632,7 +656,7 @@ transform: translate(-50%, -50%);
 
   top: 40px;
   float: left;
-  left: 200px;
+  left: 100px;
 }
 
 
@@ -813,7 +837,7 @@ html, body {
 }
 
 .vertical-slider {
-    position: absolute;
+  position: absolute;
   width: 300px;            
   height: 10px;            
   transform: rotate(-90deg);
@@ -826,14 +850,14 @@ html, body {
   align-items: center;
   justify-content: flex-start; /* or center if you prefer */
   width: 50%;
-  border: 2px solid #cb7025;
+  /* border: 2px solid #cb7025; */
 }
 
 .roofSliders {
   display: flex;
   justify-content: center;  /* center horizontally */
   align-items: center;      /* center vertically */
-  background-color: #009578;
+  /* background-color: #009578; */
   width: 100%;
   height: 600px;            /* make sure there's enough room */
   position: relative;
@@ -846,9 +870,10 @@ html, body {
   justify-content: center;
   width: 70px;
   height: 500px;
-  margin: 0 10px;           /* space between sliders */
+  margin: 0 5%;           /* space between sliders */
   position: relative;
   background: #00694f25;    /* just for visibility */
+  border-radius: 10%;
 }
 
 .sliderNumber {
@@ -860,17 +885,19 @@ html, body {
 .rgbLight {
   position: relative;
 
-  display: flex;
+  /* display: flex; */
   align-items: center;
   justify-content: center;
 
+  margin-left: 2%;
+  margin-right: 2%;
   
   top: 90%;
 
-  width: 8%;
+  width: 14%;
   height: 7%;
-
-  background-color: #eee;
+  opacity: 0.2;
+  /* background-color: #eee; */
   border: 2px solid #ccc;
   padding: 12px 24px;
   font-size: 16px;
@@ -879,5 +906,8 @@ html, body {
   transition: background-color 0.2s;
 }
 
+.rgbLight:focus {
+  outline: none;
+}
 
 
