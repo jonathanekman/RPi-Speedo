@@ -1,59 +1,28 @@
-// const { contextBridge, ipcRenderer } = require('electron/renderer')
+const { contextBridge, ipcRenderer } = require('electron');
 
-// contextBridge.exposeInMainWorld('electronAPI', {
-//   setTitle: (title) => ipcRenderer.send('set-title', title)
-// })
-
-
-const { contextBridge, ipcRenderer } = require('electron')
-
-// White-listed channels.
 const ipc = {
     'render': {
-        // From render to main.
         'send': ['puttonPress'],
-        // From main to render.
-        'receive': [
-            'camera'
-        ],
-        // From render to main and back again.
+        'receive': ['camera', 'serialData'],
         'invoke': [
             'listSerialPorts',
-            'saveConfigurationFile',
-            'openConfigurationFile',
-            'openPathDialog',
-            'saveConfig',
-            'serialInterface',
-            'modbus'
+            'serialWrite',
+            'serialOpen',
+            'serialClose'
         ]
     }
 };
 
-// Exposed protected methods in the render process.
-contextBridge.exposeInMainWorld(
-    // Allowed 'ipcRenderer' methods.
-    'api', {
-    // From render to main.
+contextBridge.exposeInMainWorld('api', {
     send: (channel, args) => {
-        let validChannels = ipc.render.send;
-        if (validChannels.includes(channel)) {
-            ipcRenderer.send(channel, args);
-        }
+        if (ipc.render.send.includes(channel)) ipcRenderer.send(channel, args);
     },
-    // From main to render.
     receive: (channel, listener) => {
-        let validChannels = ipc.render.receive;
-        if (validChannels.includes(channel)) {
-            // Deliberately strip event as it includes sender.
+        if (ipc.render.receive.includes(channel)) {
             ipcRenderer.on(channel, (event, ...args) => listener(...args));
         }
     },
-    // From render to main and back again.
     invoke: (channel, args) => {
-        let validChannels = ipc.render.invoke;
-        if (validChannels.includes(channel)) {
-            return ipcRenderer.invoke(channel, args);
-        }
+        if (ipc.render.invoke.includes(channel)) return ipcRenderer.invoke(channel, args);
     }
-}
-);
+});

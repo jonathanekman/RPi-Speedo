@@ -44,6 +44,9 @@ let camState   = 0
 let leftLight  = 0
 let rightLight = 0
 let rearLight  = 0
+let btn1Color = []
+let btn2Color = []
+let btn3Color = []
 
 ipcMain.on('puttonPress', (event, data) => {
   console.log(data)
@@ -80,7 +83,20 @@ ipcMain.on('puttonPress', (event, data) => {
     rightLight = data.rightLight;   // <-- update value
   }
 
+    if (typeof data === "object" && data.btn1Color !== undefined) {
+      // console.log(data.btn1Color)
+      btn1Color = data.btn1Color;
+    }
 
+    if (typeof data === "object" && data.btn2Color !== undefined) {
+      // console.log(data.btn2Color)
+      btn2Color = data.btn2Color;
+    }
+
+    if (typeof data === "object" && data.btn3Color !== undefined) {
+      // console.log(data.btn3Color)
+      btn3Color = data.btn3Color;
+    }    
   // const webContents = event.sender
   // const win = BrowserWindow.fromWebContents(webContents)
   // win.setTitle(title) 
@@ -94,6 +110,15 @@ ipcMain.on('puttonPress', (event, data) => {
   jsonData.leftLight = leftLight;
   jsonData.rightLight =rightLight;
   jsonData.rearLight = rearLight;
+  if (btn1Color.length) {
+  jsonData.btn1Color = btn1Color;
+  }
+  if (btn2Color.length) {
+  jsonData.btn2Color = btn2Color;
+  }
+  if (btn3Color.length) {
+  jsonData.btn3Color = btn3Color;
+  }
   // Write the JSON file 
   // app.commandLine.appendSwitch("enable-experimental-web-platform-features");
   fs.writeFileSync(filePath, JSON.stringify(jsonData, null, 2), function(err){
@@ -116,6 +141,143 @@ ipcMain.on('puttonPress', (event, data) => {
 
 
 
+const SerialPort = require('serialport');
+let espPort = null;
+
+// Internal write queue
+let writeQueue = [];
+let isWriting = false;
+
+
+// ---------------------------------------------------------
+// Helper: Ensure port is open
+// ---------------------------------------------------------
+function ensurePortOpen() {
+    return new Promise((resolve, reject) => {
+
+        // No port at all
+        if (!espPort) return reject("Port not initialized");
+
+        // Already open
+        if (espPort.isOpen) return resolve();
+
+        // Try to open
+        espPort.open(err => {
+            if (err) reject(err);
+            else resolve();
+        });
+    });
+}
+
+
+// ---------------------------------------------------------
+// Queue processor
+// ---------------------------------------------------------
+async function processQueue() {
+    if (isWriting) return;  // Already processing
+    if (writeQueue.length === 0) return; // Nothing to process
+
+    isWriting = true;
+
+    while (writeQueue.length > 0) {
+        const { data, resolve, reject } = writeQueue.shift();
+
+        try {
+            // Make sure port is open before every write
+            await ensurePortOpen();
+
+            await new Promise((res, rej) => {
+                espPort.write(Buffer.from(data), err => {
+                    if (err) rej(err);
+                    else res();
+                });
+            });
+
+            resolve(true);  // success for this write
+        } catch (err) {
+            reject(err);
+        }
+    }
+
+    isWriting = false;
+}
+
+
+// ---------------------------------------------------------
+// IPC: Write command (queued)
+// ---------------------------------------------------------
+ipcMain.handle("serialWrite", async (event, byteArray) => {
+    return new Promise((resolve, reject) => {
+        writeQueue.push({ data: byteArray, resolve, reject });
+        processQueue(); // Start queue processor
+    });
+});
+
+
+// ---------------------------------------------------------
+// List ports
+// ---------------------------------------------------------
+ipcMain.handle('listSerialPorts', async () => {
+    const ports = await SerialPort.list();
+
+    return ports.filter(p => {
+        return (
+            p.vendorId?.toLowerCase() === '10c4' ||
+            p.vendorId?.toLowerCase() === '1a86' ||
+            p.manufacturer?.toLowerCase().includes("silicon labs") ||
+            p.manufacturer?.toLowerCase().includes("esp")
+        );
+    });
+});
+
+
+// ---------------------------------------------------------
+// Open serial port
+// ---------------------------------------------------------
+ipcMain.handle('serialOpen', async (event, portPath) => {
+
+    if (espPort && espPort.isOpen) {
+        await new Promise(resolve => espPort.close(resolve));
+    }
+
+    espPort = new SerialPort(portPath, {
+        baudRate: 115200,
+        autoOpen: false,
+        lock: false
+    });
+
+    espPort.on("data", data => {
+        event.sender.send("serialData", data.toString("utf8").trim());
+    });
+
+    espPort.on("error", err => {
+        console.error("[Serial Error]", err);
+    });
+
+    return new Promise((resolve, reject) => {
+        espPort.open(err => {
+            if (err) reject(err);
+            else resolve(true);
+        });
+    });
+});
+
+
+// ---------------------------------------------------------
+// Close port
+// ---------------------------------------------------------
+ipcMain.handle("serialClose", async () => {
+    if (!espPort) return false;
+
+    return new Promise(resolve => {
+        espPort.close(() => {
+            espPort = null;
+            writeQueue = [];       // clear pending writes
+            isWriting = false;
+            resolve(true);
+        });
+    });
+});
 
 
 

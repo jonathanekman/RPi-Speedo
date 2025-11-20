@@ -14,10 +14,6 @@ window.setInterval(function(){    //catch input every 1 seconds
 
 
 let stream;
-
-
-
-
 function activateCam() {
 stopCam()
 if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
@@ -107,6 +103,17 @@ var heaterTank = 0;
 var outsideTemp = 0;
 var engineVolt = 0;
 var camperVolt = 0;
+var runAtStart = 1;
+
+let Button1Color = []
+let Button2Color = []
+let Button3Color = []
+
+let sendRGBprev = []
+let leftLed = 0;
+let backLed = 0;
+let rightLed = 0;
+
 
 function update(){
 
@@ -169,24 +176,42 @@ function update(){
 
     function formatTime(number) {
       return number < 10 ? '0' + number : number;
-  }
+    }
   
-  let now = new Date();
-  let hours = formatTime(now.getHours());
-  let minutes = formatTime(now.getMinutes());
-  let seconds = formatTime(now.getSeconds());
-  
-  document.getElementById("clock").innerHTML = hours + ':' + minutes;// + ':' + seconds;
-  
-  document.getElementById("g1").innerHTML = heaterTank + '%';
-  document.getElementById("g2").innerHTML = camperVolt + '%';
-  document.getElementById("g3").innerHTML = engineVolt + '%';
-  document.getElementById("g4").innerHTML = coolanTemp + '%';
-  
-  document.getElementById("temp").innerHTML = outsideTemp + '°';
-  
-   drawGraph();
-  });
+    let now = new Date();
+    let hours = formatTime(now.getHours());
+    let minutes = formatTime(now.getMinutes());
+    let seconds = formatTime(now.getSeconds());
+    
+    document.getElementById("clock").innerHTML = hours + ':' + minutes;// + ':' + seconds;
+    
+    document.getElementById("g1").innerHTML = heaterTank + '%';
+    document.getElementById("g2").innerHTML = camperVolt + '%';
+    document.getElementById("g3").innerHTML = engineVolt + '%';
+    document.getElementById("g4").innerHTML = coolanTemp + '%';
+    
+    document.getElementById("temp").innerHTML = outsideTemp + '°';
+    
+
+    if (runAtStart) {
+      Button1Color = json.btn1Color;
+      Button2Color = json.btn2Color;
+      Button3Color = json.btn3Color;
+
+      document.getElementById("rgbButton1").style.backgroundColor = 
+        'rgb(' + Button1Color[0] + ',' + Button1Color[1] + ',' + Button1Color[2] + ')';
+
+      document.getElementById("rgbButton2").style.backgroundColor = 
+        'rgb(' + Button2Color[0] + ',' + Button2Color[1] + ',' + Button2Color[2] + ')';
+
+      document.getElementById("rgbButton3").style.backgroundColor = 
+        'rgb(' + Button3Color[0] + ',' + Button3Color[1] + ',' + Button3Color[2] + ')';
+
+      runAtStart = 0;
+    }
+
+    drawGraph();
+  }); //done reading JSON
 
 };
 
@@ -218,6 +243,7 @@ canvas2.addEventListener('mouseup', endFn);
 
 var activeButton = 0;
 
+
 function drawFn() {
 ctx.clearRect(0, 0, canvas2.width, canvas2.height);
 ctx.beginPath();
@@ -234,54 +260,65 @@ var circleColor = 'rgb(' + red + ',' + green + ',' + blue + ')';
 ctx.fill();
 }
 function valFn() {
-value = Math.round(a * 150 / Math.PI);
-if (value < 0)
-{
-  value = (value) + 300;
+    value = Math.round(a * 150 / Math.PI);
+    if (value < 0) {
+        value = value + 300;
+    }
+
+    if (value >= 0 && value < 5) { // white
+        red = green = blue = 255;
+    } else if (value >= 5 && value < 100) {
+        red = Math.round(value * 2.5);
+        green = 0;
+        blue = Math.round(red / 2);
+    } else if (value >= 100 && value < 200) {
+        green = Math.round((value - 100) * 2.5);
+        red = Math.round(green / 2);
+        blue = 0;
+    } else if (value >= 200 && value < 300) {
+        blue = Math.round((value - 200) * 2.5);
+        red = 0;
+        green = Math.round(blue / 2);
+    }
+
+    // Clamp values to 0-255
+    red = Math.min(Math.max(red, 0), 255);
+    green = Math.min(Math.max(green, 0), 255);
+    blue = Math.min(Math.max(blue, 0), 255);
+
+    let circleColor = 'rgb(' + red + ',' + green + ',' + blue + ')';
+    // console.log(circleColor);
+
+
+
+    document.getElementById("rgbController").style.backgroundColor = circleColor;
+
+    if (activeButton === 1) {
+        document.getElementById("rgbButton1").style.backgroundColor = circleColor;
+        sendRGB(sendRGBprev[0], sendRGBprev[1], sendRGBprev[2], red, green, blue);        
+        window.api.send("puttonPress", { btn1Color: [red, green, blue] });
+        Button1Color = [red, green, blue];
+      }
+    if (activeButton === 2) {
+        document.getElementById("rgbButton2").style.backgroundColor = circleColor;
+        sendRGB(sendRGBprev[0], sendRGBprev[1], sendRGBprev[2], red, green, blue);  
+        window.api.send("puttonPress", { btn2Color: [red, green, blue] });
+        Button2Color = [red, green, blue];
+
+      }
+    if (activeButton === 3) {
+        document.getElementById("rgbButton3").style.backgroundColor = circleColor;
+        sendRGB(sendRGBprev[0], sendRGBprev[1], sendRGBprev[2], red, green, blue);  
+        window.api.send("puttonPress", { btn3Color: [red, green, blue] });
+        Button3Color = [red, green, blue];
+
+      }
+
+
+
+  val.textContent = `: ${value}`;
 }
 
-if (value >= 0 && value < 5) //white here
-{
-red = blue = green = 255;
-}
-if (value >= 5 && value < 100)
-  {
-    red = Math.round(value * 2.5)
-    green = 0;
-    blue = red/2;
-  }
-if (value >= 100 && value < 200)
-  {
-    green = Math.round((value - 100)  * 2.5)
-    red = green/2;
-    blue = 0;
-  }
-if (value >= 200 && value < 300)
-  {
-    blue = Math.round((value - 200)  * 2.5)
-    red = 0;
-    green = blue/2;
-  }
-
-  circleColor = 'rgb(' + red + ',' + green + ',' + blue + ')';
-  // console.log("Red: " + red + ", Green: " + green + ", Blue: " + blue)
-  console.log(circleColor)
-
-document.getElementById("rgbController").style.backgroundColor = circleColor;
-
-if (activeButton === 1) {
-  document.getElementById("rgbButton1").style.backgroundColor = circleColor;
-  }
-if (activeButton === 2) {
-  document.getElementById("rgbButton2").style.backgroundColor = circleColor;
-  }
-if (activeButton === 3) {
-  document.getElementById("rgbButton3").style.backgroundColor = circleColor;
-  }
-
-
-val.textContent = `: ${value}`;
-}
 let temp = false;
 function dragFn(e) {
 temp = true;
@@ -591,206 +628,6 @@ window.addEventListener("load", () => {
 
 
 
-// function deactivateOthers(except) {
-//   if (except !== 1) {
-//     rgbButton1State = false;
-//     rgbButton1.style.opacity = "0.2";
-//   }
-//   if (except !== 2) {
-//     rgbButton2State = false;
-//     rgbButton2.style.opacity = "0.2";
-//   }
-//   if (except !== 3) {
-//     rgbButton3State = false;
-//     rgbButton3.style.opacity = "0.2";
-//   }
-// }
-
-// //Button1----------------------------------------------------------------
-
-// const rgbButton1 = document.getElementById("rgbButton1");
-// const toggle = document.getElementById("menuToggle");
-
-// let colorEditorOpen = false;
-// let rgbButton1State = false;
-
-// let holdTimer;
-// let held = false;
-// let held2 = false;
-// let held3 = false;
-
-// function startHold(e) {
-//   if (e.pointerType === "mouse" && e.button !== 0) return;
-//   held = false;
-
-//   holdTimer = setTimeout(() => {
-//     held2 = false;
-//     held3 = false;
-
-//     held = true;
-
-//     if (!colorEditorOpen) {
-//       toggle.classList.add("open");
-//       toggle.classList.remove("close");
-//       colorEditorOpen = true;
-//       activeButton = 1; 
-//     } else {
-//       toggle.classList.remove("open");
-//       toggle.classList.add("close");
-//       colorEditorOpen = false;
-//       document.getElementById("rgbButton1").style.border = "2px solid #ccc";
-//     }
-//   }, 500);
-// }
-
-// // --- cancel hold ---
-// function cancelHold() {
-//   clearTimeout(holdTimer);
-//   // console.log("cancelHold");
-
-//     if (!held) {
-//     if (rgbButton1State) {
-//         // document.getElementById("rgbButton1").textContent = "OFF";
-//       document.getElementById("rgbButton1").style.opacity = "0.2";
-//       rgbButton1State = false;
-//       // console.log("rgbButton1State OFF");
-//     } else {
-//         // document.getElementById("rgbButton1").textContent = "ON";
-//       rgbButton1State = true;
-//       deactivateOthers(1);
-//       document.getElementById("rgbButton1").style.opacity = "1";
-//       activeButton = 1;
-//     }  
-//   }
-// }
-// rgbButton1.addEventListener("pointerdown", startHold);
-// rgbButton1.addEventListener("pointerup", cancelHold);
-// rgbButton1.addEventListener("pointercancel", cancelHold);
-// // rgbbutton.addEventListener("pointerleave", cancelHold);
-
-
-
-// //Button2----------------------------------------------------------------
-
-// const rgbButton2 = document.getElementById("rgbButton2");
-// let rgbButton2State = false;
-
-// let holdTimer2;
-// // let held2 = false;
-
-// function startHold2(e) {
-//   if (e.pointerType === "mouse" && e.button !== 0) return;
-//   held2 = false;
-
-//   holdTimer2 = setTimeout(() => {
-//     held = false;
-//     held3 = false;
-//     held2 = true;
-
-//     if (!colorEditorOpen) {
-//       toggle.classList.add("open");
-//       toggle.classList.remove("close");
-//       colorEditorOpen = true;
-//       activeButton = 2;
-//     } else {
-//       toggle.classList.remove("open");
-//       toggle.classList.add("close");
-//       colorEditorOpen = false;
-//       document.getElementById("rgbButton2").style.border = "2px solid #ccc";
-//     }
-//   }, 500);
-// }
-
-// // --- cancel hold ---
-// function cancelHold2() {
-//   clearTimeout(holdTimer2);
-//   // console.log("cancelHold2");
-
-//     if (!held2) {
-//     if (rgbButton2State) {
-//         // document.getElementById("rgbButton1").textContent = "OFF";
-//       document.getElementById("rgbButton2").style.opacity = "0.2";
-//       rgbButton2State = false;
-//       // console.log("rgbButton2State OFF");
-//     } else {
-//         // document.getElementById("rgbButton1").textContent = "ON";
-//       rgbButton2State = true;
-//       deactivateOthers(2);   
-//       document.getElementById("rgbButton2").style.opacity = "1";
-//       activeButton = 2;
-//     }  
-//   }
-// }
-// rgbButton2.addEventListener("pointerdown", startHold2);
-// rgbButton2.addEventListener("pointerup", cancelHold2);
-// rgbButton2.addEventListener("pointercancel", cancelHold2);
-
-
-
-
-
-
-
-
-
-
-
-
-
-// //Button3----------------------------------------------------------------
-
-// const rgbButton3 = document.getElementById("rgbButton3");
-// let rgbButton3State = false;
-
-// let holdTimer3;
-
-// function startHold3(e) {
-//   if (e.pointerType === "mouse" && e.button !== 0) return;
-//   held3 = false;
-
-//   holdTimer3 = setTimeout(() => {
-//     held = false;
-//     held2 = false;
-//     held3 = true;
-
-//     if (!colorEditorOpen) {
-//       toggle.classList.add("open");
-//       toggle.classList.remove("close");
-//       colorEditorOpen = true;
-//       activeButton = 3;
-//     } else {
-//       toggle.classList.remove("open");
-//       toggle.classList.add("close");
-//       colorEditorOpen = false;
-//       document.getElementById("rgbButton3").style.border = "2px solid #ccc";
-//     }
-//   }, 500);
-// }
-
-// // --- cancel hold ---
-// function cancelHold3() {
-//   clearTimeout(holdTimer3);
-//   // console.log("cancelHold3");
-
-//     if (!held3) {
-//     if (rgbButton3State) {
-//         // document.getElementById("rgbButton1").textContent = "OFF";
-//       document.getElementById("rgbButton3").style.opacity = "0.2";
-//       rgbButton3State = false;
-//       // console.log("rgbButton3State OFF");
-//     } else {
-//         // document.getElementById("rgbButton1").textContent = "ON";
-//       rgbButton3State = true;
-//       deactivateOthers(3);
-//       document.getElementById("rgbButton3").style.opacity = "1";
-//       activeButton = 3;
-//     }  
-//   }
-// }
-// rgbButton3.addEventListener("pointerdown", startHold3);
-// rgbButton3.addEventListener("pointerup", cancelHold3);
-// rgbButton3.addEventListener("pointercancel", cancelHold3);
-
 
 
 
@@ -853,11 +690,25 @@ class RGBButton {
     RGBButton.activeButton = this.index;
     activeButton = this.index;
 
+    if (RGBButton.activeButton === 1) {
+      sendRGB(sendRGBprev[0], sendRGBprev[1], sendRGBprev[2], Button1Color[0], Button1Color[1], Button1Color[2]);
+    }
+
+    if (RGBButton.activeButton === 2) {
+      sendRGB(sendRGBprev[0], sendRGBprev[1], sendRGBprev[2], Button2Color[0], Button2Color[1], Button2Color[2]);
+    }
+
+    if (RGBButton.activeButton === 3) {
+      sendRGB(sendRGBprev[0], sendRGBprev[1], sendRGBprev[2], Button3Color[0], Button3Color[1], Button3Color[2]);
+    }
+
+
   }
 
   turnOff() {
     this.state = false;
     this.el.style.opacity = "0.2";
+    sendRGB(sendRGBprev[0], sendRGBprev[1], sendRGBprev[2], 0, 0, 0);
   }
 
   toggleEditor() {
@@ -880,35 +731,95 @@ new RGBButton("rgbButton2", 2);
 new RGBButton("rgbButton3", 3);
 
 
-    // document.getElementById("leftLight").innerHTML = document.getElementById("leftLightSlider").value;
 
 
 
-  // const slider = document.getElementById("leftLightSlider");
-  // const display = document.getElementById("leftLight");
+function scaleTo255(value) {
+    return Math.round(value * 255 / 100);
+}
+
 
   // update when the slider moves
   document.getElementById("leftLightSlider").addEventListener("input", () => {
-    document.getElementById("leftLight").textContent = document.getElementById("leftLightSlider").value;
+    const slider = document.getElementById("leftLightSlider");
+    const value  = slider.value;
+    document.getElementById("leftLight").textContent = value;
+    const newValue = scaleTo255(value);
+    sendRGB(Number(newValue), sendRGBprev[1], sendRGBprev[2], sendRGBprev[3], sendRGBprev[4], sendRGBprev[5])  
   });
 
   document.getElementById("centerLightSlider").addEventListener("input", () => {
-    document.getElementById("centerLight").textContent = document.getElementById("centerLightSlider").value;
+    const slider = document.getElementById("centerLightSlider");
+    const value  = slider.value;
+    document.getElementById("centerLight").textContent = value;
+    const newValue = scaleTo255(value);
+  sendRGB(sendRGBprev[0], Number(newValue), sendRGBprev[2], sendRGBprev[3], sendRGBprev[4], sendRGBprev[5])    
   });
-
-  // document.getElementById("rightLightSlider").addEventListener("input", () => {
-  //   document.getElementById("rightLight").textContent = document.getElementById("rightLightSlider").value;
-  // });
-
-
 
   document.getElementById("rightLightSlider").addEventListener("input", () => {
   const slider = document.getElementById("rightLightSlider");
   const value  = slider.value;
-
-  // Update UI text
   document.getElementById("rightLight").textContent = value;
-
+  const newValue = scaleTo255(value);
   // Send new slider value to main
-  window.api.send("puttonPress", { rightLight: Number(value) });
+  // window.api.send("puttonPress", { rightLight: Number(value) });
+  sendRGB(sendRGBprev[0], sendRGBprev[1], Number(newValue), sendRGBprev[3], sendRGBprev[4], sendRGBprev[5])
 });
+
+
+
+
+
+
+
+
+
+
+
+
+// Keep a global "isPortOpen" state so we don't reopen on every write
+let esp32PortOpen = false;
+let esp32Path = null;
+let serialListenerSet = false;
+
+async function sendRGB(leftLed, backLed, rightLed, r, g, b) {
+  sendRGBprev = [leftLed, backLed, rightLed, r, g, b]
+  try {
+    // 1 — Make sure we know the port path
+    if (!esp32Path) {
+      const ports = await window.api.invoke('listSerialPorts');
+      if (!ports || ports.length === 0) {
+        console.log("No ESP32 ports found.");
+        return;
+      }
+      esp32Path = ports[0].path;
+      console.log("Found ESP32 on", esp32Path);
+    }
+
+    // 2 — Open the serial port only once
+    if (!esp32PortOpen) {
+      await window.api.invoke('serialOpen', esp32Path);
+      esp32PortOpen = true;
+      console.log("Serial port opened.");
+
+      // Only attach listener once
+      if (!serialListenerSet) {
+        window.api.receive("serialData", (msg) => {
+          console.log("ESP32:", msg);
+        });
+        serialListenerSet = true;
+      }
+    }
+
+    // 3 — Send RGB data (queued on the main process)
+    const bytes = [leftLed, rightLed, backLed, r, g, b];
+    await window.api.invoke("serialWrite", bytes);
+    console.log(`Sent RGB -> R:${r}, G:${g}, B:${b}`);
+
+  } catch (err) {
+    console.error("Error sending RGB:", err);
+  }
+}
+
+
+
