@@ -1,0 +1,955 @@
+body {
+  padding: 1em;
+  font-family: 'Oswald';
+  overflow: hidden;
+  background-color: rgb(0, 0, 0);
+
+}
+
+* {
+  margin: 0;
+  padding: 0;
+}
+
+.legend {
+  color: rgb(0, 0, 0);
+}
+
+@font-face {
+  font-family: sevenSegment;
+  src: url(Seven\ Segment.ttf);
+}
+
+
+.speedbox {
+  background-color: #eee;
+  /* height: 700px; */
+  /* width: 700px; */
+  width: 100vh;           
+  height: 100vh;  
+  display: -webkit-box;
+  display: -ms-flexbox;
+  display: flex;
+  display: -webkit-flex;
+  -webkit-box-orient: vertical;
+  -webkit-box-direction: normal;
+      -ms-flex-direction: column;
+          flex-direction: column;
+  -webkit-box-align: center;
+      -ms-flex-align: center;
+          align-items: center;
+  -webkit-align-items: center;
+  position: absolute;
+
+  margin: auto;
+/* top: 1%; */
+
+background-image: radial-gradient( greenyellow 30%, #000  70%);
+
+
+top: 50%;
+left: 50%;
+-ms-transform: translate(-50%, -50%);
+transform: translate(-50%, -50%);
+}
+
+.speedbox__score {
+  margin: auto;
+  position: relative;  
+  transform: rotate(-45deg);
+  -webkit-transform: rotate(0deg);
+  /* height: 580px;
+  width: 580px; */
+  width: 80vh;           
+  height: 80vh;  
+
+  border-radius: 50%;
+  background: blue;  
+  -webkit-box-sizing: border-box;
+          box-sizing: border-box;
+  cursor: pointer;
+  z-index: 30;
+  -webkit-transition: -webkit-transform .3s ease;
+  transition: -webkit-transform .3s ease;
+  transition: transform .3s ease;
+  transition: transform .3s ease, -webkit-transform .3s ease;
+}
+
+
+.speedbox__score::before {
+  border-radius: 50%;
+  position: absolute;
+  content: '';
+  background:
+    linear-gradient(0deg, hsla(0,0%,100%,1) 50%, hsla(0,0%,100%,0.9) 100%) 0% 0%,
+    linear-gradient(90deg, hsla(0,0%,100%,0.9) 0%, hsla(0,0%,100%,0.6) 100%) 100% 0%,
+    linear-gradient(180deg, hsla(0,0%,100%,0.6) 0%, hsla(0,0%,100%,0.3) 100%) 100% 100%,
+    linear-gradient(360deg, hsla(0,0%,100%,0.3) 0%, hsla(0,0%,100%,0) 100%) 0% 100%;
+  background-repeat: no-repeat;
+  background-size: 50% 50%;
+  top: -1px;
+  bottom: -1px;
+  left: -1px;
+  right: -1px;
+}
+
+
+.speedbox__score::after {
+  position: absolute;
+  content: '';
+	background: #000;
+	border-radius: 50%;
+	top: 3%;
+	bottom: 3%;
+	left: 3%;
+	right: 3%;
+}
+
+
+.speedbox__base {
+  width: 600px;
+  height: 250px;
+  background: rgb(0, 0, 0);
+
+  position: absolute;
+  bottom: 0px;
+  z-index: 20;
+}
+
+.logo {
+  width: 100px;
+  position: absolute;
+  margin-right: 15%;
+  top: -120px;
+}
+
+.fart {
+  font-size: x-large;
+  font-family: sevenSegment;
+  color: white;
+  font-size: 35px;
+  font: bold;
+  text-shadow: 0 0 3px rgba(167, 167, 167, 0.2);
+  line-height: 1.2em;
+  text-align: right;
+  position: absolute;
+  /* bottom: 250px; */
+  /* bottom: 20%; */
+  /* width: 150px; */
+  top: 58%;
+  /* left: 50%; */
+  width: 25vh;           
+  height: 25vh; 
+  z-index: 30;
+}
+
+#kmh {
+  position: absolute;
+  top: 48%;
+  left: 50%;  
+  /* color: orange; */
+  color: greenyellow;
+  
+  font-family: sevenSegment;
+  /* font-size: xx-large; */
+  font-size: 50px;
+
+  z-index: 90;
+
+  -ms-transform: translate(-50%, -50%);
+  transform: translate(-50%, -50%);
+}
+
+#clock {
+  position: absolute;
+  top: 4%;
+  left: 50%;  
+  /* color: orange; */
+  /* color: greenyellow; */
+  color: #8b8b8b;
+
+  font-family: sevenSegment;
+  font-size: xx-large;
+  z-index: 90;
+
+  -ms-transform: translate(-50%, -50%);
+  transform: translate(-50%, -50%);
+}
+
+#temp {
+  position: absolute;
+  top: 3.5%;
+  left: 65%;  
+  color: #8b8b8b;
+
+  font-family: sevenSegment;
+  font-size: x-large;
+  z-index: 90;
+
+  -ms-transform: translate(-50%, -50%);
+  transform: translate(-50%, -50%);
+}
+
+
+.graphProcent {
+  position: absolute;
+  top: 48%;
+  left: 7%;  
+  color: #8b8b8b;
+
+  font-family: sevenSegment;
+  font-size: xx-large;
+  z-index: 90;
+
+  -ms-transform: translate(-50%, -50%);
+  transform: translate(-50%, -50%);
+}
+
+#engineVoltage {
+  position: absolute;
+  top: 85%;
+  left: 30%;  
+  color: #8b8b8b;
+
+  font-family: sevenSegment;
+  font-size: large;
+  z-index: 90;
+
+  -ms-transform: translate(-50%, -50%);
+  transform: translate(-50%, -50%);
+}
+
+#livingVoltage {
+  position: absolute;
+  top: 85%;
+  left: 70%;  
+  color: #8b8b8b;
+
+  font-family: sevenSegment;
+  font-size: large;
+  z-index: 90;
+
+  -ms-transform: translate(-50%, -50%);
+  transform: translate(-50%, -50%);
+}
+
+#coolantTemp {
+  position: absolute;
+  top: 15%;
+  left: 30%;  
+  color: #8b8b8b;
+
+  font-family: sevenSegment;
+  font-size: large;
+  z-index: 90;
+
+  -ms-transform: translate(-50%, -50%);
+  transform: translate(-50%, -50%);
+}
+
+#dieselTank {
+  position: absolute;
+  top: 15%;
+  left: 70%;  
+  color: #8b8b8b;
+
+  font-family: sevenSegment;
+  font-size: large;
+  z-index: 90;
+
+  -ms-transform: translate(-50%, -50%);
+  transform: translate(-50%, -50%);
+}
+
+
+
+.background {
+  position: absolute;
+  /* width: 440px;
+  height: 440px; */
+  width: 75vh;
+  height: 75vh;
+  border-radius: 50%;
+  top: 12%;
+  z-index: 30;
+  /* left: 50%; */
+  /* margin: auto; */
+  /* top: -270px;
+  margin-left: -295px; */
+}
+
+.numbers {
+  padding-top: 35%; /*moves numbers upp*/
+  position: absolute; 
+  z-index: 50;
+  color: white;
+  font-family: sevenSegment;
+  /* font-size: x-large; */
+}
+
+.cirkles {
+  width: 75px;
+  height: 75px;
+  position: absolute;
+  margin-left: 26%;
+  margin-top: 20%;
+}
+
+.centerCircle {
+  position: absolute;
+  border: 4px solid #fff;
+  width: 100%;
+  height: 100%;
+  border-radius: 100%;
+}
+
+.leftCircle {
+  font-size: x-large;
+  font-family: sevenSegment, sans-serif;
+  position: absolute;
+  margin-left: -120%;
+  border: 4px solid #fff;
+  width: 70%;
+  height: 70%;
+  border-radius: 100%;
+}
+
+.rightCirkle {
+  position: absolute;
+  margin-left: 150%;
+  border: 4px solid #fff;
+  width: 70%;
+  height: 70%;
+  border-radius: 100%;
+}
+/* ------------------------------------ */
+
+.arrows {
+  /* transform: rotate(90deg); */
+  width: 60px;
+  height: 72px;
+  position: absolute;
+  left: 45%;
+  margin-left: -32px;
+  bottom: 0px;
+  /* z-index: 40 */
+}
+
+.arrows path {
+  /* stroke: #2994D1; */
+  stroke: #fa6c00;
+  fill: transparent;
+  stroke-width: 5px;  
+  animation: arrow 2s infinite;
+  -webkit-animation: arrow 2s infinite; 
+}
+
+@keyframes arrow
+{
+0% {opacity:0}
+40% {opacity:1}
+80% {opacity:0}
+100% {opacity:0}
+}
+
+@-webkit-keyframes arrow 
+{
+0% {opacity:0}
+40% {opacity:1}
+80% {opacity:0}
+100% {opacity:0}
+}
+
+.arrows path.a1 {
+  animation-delay:-1s;
+  -webkit-animation-delay:-1s; 
+}
+
+.arrows path.a2 {
+  animation-delay:-0.5s;
+  -webkit-animation-delay:-0.5s; 
+}
+
+.arrows path.a3 { 
+  animation-delay:0s;
+  -webkit-animation-delay:0s; 
+}
+
+
+/* ------------------------------------ */
+
+
+.speedbox__base:before {
+  /* content: '0'; */
+  text-align: right;
+  color: #348514;
+  width: 40px;
+  position: relative;
+  top: -5;
+  float: left;
+  -webkit-box-shadow: 1px 3px 15px rgba(0, 0, 0, 0.5);
+          box-shadow: 1px 3px 15px rgba(0, 0, 0, 0.5);
+}
+
+.speedbox__base::after {
+  /* content: '100'; */
+
+  color: #348514;
+  width: 40px;
+  position: relative;
+  float: right;
+  top: -5;
+  -webkit-box-shadow: 1px 3px 15px rgba(0, 0, 0, 0.5);
+          box-shadow: 1px 3px 15px rgba(0, 0, 0, 0.5);
+}
+
+
+
+/*Toggle switch start*/
+
+.toggle {
+  --width: 60px;
+  --height: calc(var(--width) / 2);
+  --border-radius: calc(var(--height) / 2);
+  position: absolute;
+  z-index: 50;
+
+  cursor: pointer;
+
+  left: 5%;
+  top: 50%;  
+  -ms-transform: translate(-50%, -50%);
+  transform: translate(-50%, -50%);
+}
+
+.toggle__input {
+  display: none;
+}
+
+.toggle__fill {
+  position: relative;
+  width: var(--width);
+  height: var(--height);
+  border-radius: var(--border-radius);
+  background: #8b8b8b;
+  transition: background 0.2s;
+}
+
+
+.toggle__fill::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: var(--height);
+  width: var(--height);
+  background: #ffffff;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.25);
+  border-radius: var(--border-radius);
+  transition: transform 0.2s;
+}
+
+.toggle__input:checked ~ .toggle__fill {
+  background: #009578;
+}
+
+.toggle__input:checked ~ .toggle__fill::after {
+  transform: translateX(var(--height));
+}
+
+/*Toggle switch end*/
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/*Hamburger start*/
+ 
+ #menuToggle
+ {
+   display: block;
+   position: relative;
+   top: 20px;
+   left: 20px;
+   z-index: 51;
+   -webkit-user-select: none;
+   user-select: none;
+ }
+ 
+ #menuToggle a
+ {
+   text-decoration: none;
+   color: #232323;
+   transition: color 0.3s ease;
+ }
+ 
+ #menuToggle a:hover
+ {
+   color: greenyellow;
+ }
+ 
+ 
+ #menuToggle input
+ {
+   display: block;
+   width: 40px;
+   height: 32px;
+   position: absolute;
+   top: -7px;
+   left: -5px;
+   cursor: pointer;
+   opacity: 0; /* hide this */
+   z-index: 52; /* and place it over the hamburger */
+   -webkit-touch-callout: none;
+ }
+ 
+ /*
+  * Just a quick hamburger
+  */
+ #menuToggle span
+ {
+   display: block;
+   width: 33px;
+   height: 4px;
+   margin-bottom: 5px;
+   position: relative;
+   background: #cdcdcd;
+   border-radius: 3px;
+   z-index: 51;
+   transform-origin: 4px 0px;
+   transition: transform 0.5s cubic-bezier(0.77,0.2,0.05,1.0),
+               background 0.5s cubic-bezier(0.77,0.2,0.05,1.0),
+               opacity 0.55s ease;
+ }
+ 
+ #menuToggle span:first-child
+ {
+   transform-origin: 0% 0%;
+ }
+ 
+ #menuToggle span:nth-last-child(2)
+ {
+   transform-origin: 0% 100%;
+ }
+ 
+ /* 
+  * Transform all the slices of hamburger
+  * into a crossmark.
+  */
+ #menuToggle input:checked ~ span
+ {
+   opacity: 1;
+   transform: rotate(45deg) translate(-2px, -1px);
+   background: #232323;
+ }
+ 
+ /*
+  * But let's hide the middle one.
+  */
+ #menuToggle input:checked ~ span:nth-last-child(3)
+ {
+   opacity: 0;
+   transform: rotate(0deg) scale(0.2, 0.2);
+ }
+ 
+ /*
+  * Ohyeah and the last one should go the other direction
+  */
+ #menuToggle input:checked ~ span:nth-last-child(2)
+ {
+   transform: rotate(-45deg) translate(0, -1px);
+ }
+ 
+ /*
+  * Make this absolute positioned
+  * at the top left of the screen
+  */
+ #menu
+ {
+  position: absolute;
+  width: 400px;
+  height: 200px;
+  margin-left: -20px;
+  padding: 15px;
+  top: -10px;
+  background: #8b8b8b;
+  opacity: 95%;
+  border-radius: 5% 10% 10% 10%;
+  list-style-type: none;
+  -webkit-font-smoothing: antialiased;
+  transform-origin: top;
+  transform: translateY(-100%);
+  transition:
+    transform 0.5s cubic-bezier(0.77,0.2,0.05,1.0),
+    opacity 0.3s ease;
+
+  /* hide when closed */
+  opacity: 0;
+  pointer-events: none;
+ }
+ 
+ #menu li
+ {
+  position: relative;
+   top: 30px;
+   padding: 10px 0;
+   font-size: 15px;
+ }
+ 
+ /*
+  * And let's slide it in from the left
+  */
+ /* #menuToggle input:checked ~ ul
+ {
+   transform: none;
+ } */
+
+/*Hamburger end*/
+#menuToggle.open #menu {
+  transform: translateY(0);
+  opacity: 1;
+  pointer-events: auto; 
+}
+
+#menuToggle.open span {
+  opacity: 1;
+  transform: rotate(45deg) translate(-2px, -1px);
+  background: #232323;
+}
+#menuToggle.open span:nth-last-child(3) {
+  opacity: 0;
+  transform: rotate(0deg) scale(0.2, 0.2);
+}
+#menuToggle.open span:nth-last-child(2) {
+  transform: rotate(-45deg) translate(0, -1px);
+}
+
+
+
+
+
+
+#rgbController
+{
+  /* background-color: rgba(255,165,0);  */
+  /* background-color: #000, #009578, #fff;  */
+  /*background-image: radial-gradient( rgb(173,255,47) 30%, #00000000  70%); /*greenyellow*/
+
+  position: absolute; 
+  width: 150px; 
+  height: 150px;
+
+  top: 40px;
+  float: left;
+  left: 100px;
+}
+
+
+
+
+#sContainer {
+  width: 150px;
+  height: 150px;
+  position: relative;
+  /* margin: auto; */
+  top: -25px;
+  left: -25px; 
+}
+
+#sValue {
+  position: relative;
+  /* top: 50%;
+  left: 50%; */
+  top: -75px;
+  left: 125px; 
+  transform: translate(-50%, -50%);
+  font-family: Arial, sans-serif;
+  font-size: 24px;
+}
+
+
+
+
+/* cirkular progress */
+
+.chart {
+  position: absolute;
+  z-index: 0; 
+  
+  top: 49%;
+  left: 50%;
+  
+  -ms-transform: translate(-50%, -50%);
+  transform: translate(-50%, -50%);
+  
+ /* transform: rotate(20deg);
+  transform-origin: 165% -110%; /*Upp, left*/
+
+  /* transform: rotate(45deg); */
+  /* -webkit-transform: rotate(0deg); */
+  /* background-color: #348514;
+  opacity: 90%; */
+}
+  
+
+/* 
+ divv {
+  width: 100vw;
+  height: 100vh;
+  text-align: center;
+  display: table-cell;
+  vertical-align: middle;
+}
+
+canvass {
+  width: auto;
+  height: 90vmin;
+}
+
+spann {
+  position: absolute;
+  font-size: 30vmin;
+  line-height: 90vmin;
+  width: 90vmin; 
+ }  */
+
+
+
+
+ /* .extra-info {
+  display: none;
+  line-height: 30px;
+  font-size: 12px;
+	position: absolute;
+  top: -2px;
+  left: 50px;
+  
+} */
+
+/* common styling for all info divs */
+.info {
+  position: absolute;
+  bottom: 20px;
+  left: 20px;
+  color: orange;
+  font-size: 20px;
+  font-weight: bold;
+  z-index: 90;
+
+  opacity: 0;             /* start hidden */
+  transition: opacity .8s ease;
+}
+
+/* icon stays fixed at bottom-left */
+.icon {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  cursor: pointer;
+}
+
+/* expandable window (hidden by default) */
+.info-window {
+  position: absolute;
+  left: 30px;
+  bottom: 0;
+
+  background: #5f5f5f;
+  border-radius: 5px;
+
+  opacity: 0;
+  max-height: 0;
+  width: 300px;
+  padding: 0 10px;
+  overflow: hidden;
+
+  transition:
+    max-height .5s ease,
+    opacity .5s ease,
+    padding .3s ease;
+}
+
+/* panel opens on hover OR via JS */
+.icon:hover + .info-window,
+.info-window:hover,
+.info-window.open {
+  opacity: 1;
+  max-height: 300px;       /* adjust to fit content */
+  padding: 5px 10px;
+}
+
+/* text inside panel */
+.extra-info {
+  color: white;
+  line-height: 30px;
+  font-size: large;
+  white-space: nowrap;
+}
+
+
+
+
+
+
+html, body {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  width: 100vw;
+  height: 100vh;
+}
+
+/* Swipe container */
+.container {
+  display: flex;
+  flex-wrap: nowrap;
+  width: 300vw;             /* 3 full screens */
+  height: 100vh;
+  transition: transform 0.4s ease;
+  will-change: transform;   /* smoother animations */
+}
+
+/* Each page = exactly 1 full viewport width */
+.page {
+  flex: 0 0 100vw;
+  width: 100vw;
+  height: 100vh;
+  position: relative;
+  overflow: hidden;
+  /* pointer-events: auto; */
+}
+
+
+.page:nth-child(1) { background: #333; color: white; display: flex; justify-content: center; align-items: center; font-size: 2em; }
+.page:nth-child(2) { background: #000; } /*  speedometer */
+.page:nth-child(3) { background: #1a1a1a; color: white; display: flex; font-size: 2em; }
+
+
+.settings {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  top: 15%;
+  left: 10%;
+}
+
+.settings button {
+  margin: 10px;
+  padding: 10px 20px;
+}
+
+
+
+.slider {
+/* -webkit-appearance: none; */
+  width: 20%;
+  height: 25px;
+  background: #d3d3d3;
+  outline: none;
+  opacity: 0.7;
+  -webkit-transition: .2s;
+  transition: opacity .2s;
+}
+
+.vertical-slider {
+  position: absolute;
+  width: 300px;            
+  height: 10px;            
+  transform: rotate(-90deg);
+  transform-origin: 50% 50%; 
+}
+
+.firstColumn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start; /* or center if you prefer */
+  width: 50%;
+  /* border: 2px solid #cb7025; */
+}
+
+.roofSliders {
+  display: flex;
+  justify-content: center;  /* center horizontally */
+  align-items: center;      /* center vertically */
+  /* background-color: #009578; */
+  width: 100%;
+  height: 600px;            /* make sure there's enough room */
+  position: relative;
+  overflow: hidden;         /* prevents escape if transform pushes it out */
+}
+
+.slideBox {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 70px;
+  height: 500px;
+  margin: 0 5%;           /* space between sliders */
+  position: relative;
+  background: #00694f25;    /* just for visibility */
+  border-radius: 10%;
+}
+
+.sliderNumber {
+  margin-top: -350px;
+  color: white;
+  font-family: sevenSegment;
+}
+
+.rgbLight {
+  position: relative;
+
+  /* display: flex; */
+  align-items: center;
+  justify-content: center;
+
+  margin-left: 2%;
+  margin-right: 2%;
+  
+  top: 90%;
+
+  width: 14%;
+  height: 7%;
+  opacity: 0.2;
+  /* background-color: #eee; */
+  border: 2px solid #ccc;
+  padding: 12px 24px;
+  font-size: 16px;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background-color 0.2s;
+}
+
+.rgbLight:focus {
+  outline: none;
+}
+
+

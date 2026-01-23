@@ -1,0 +1,8 @@
+
+
+package:
+Linux:
+electron-packager . app --platform=linux --overwrite
+
+RPI:
+electron-packager . app --platform=linux --arch=armv7l --prune=true --overwrite

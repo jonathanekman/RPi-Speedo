@@ -1,0 +1,31 @@
+{
+  "errors": "test2",
+  "speed": 69,
+  "leftBlinker": 0,
+  "rightBlinker": 0,
+  "fuel": 69,
+  "kamera": 0,
+  "leftLight": 0,
+  "rightLight": 0,
+  "rearLight": 0,
+  "heaterTank": 8,
+  "camperVolt": 40,
+  "engineVolt": 77,
+  "coolanTemp": 4,
+  "outsideTemp": -1337,
+  "btn1Color": [
+    0,
+    85,
+    170
+  ],
+  "btn2Color": [
+    114,
+    228,
+    0
+  ],
+  "btn3Color": [
+    203,
+    0,
+    102
+  ]
+}
