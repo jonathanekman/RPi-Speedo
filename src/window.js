@@ -920,7 +920,7 @@ function handleMQTT(topic, payload) {
   // -------- TEMPERATURE --------
   if (topic === "controllerBox/outsideTemp") {
     outsideTemp = Number(payload);
-    document.getElementById("temp").innerHTML = outsideTemp + "°";
+    document.getElementById("temp").innerHTML = outsideTemp + "°c";
   }
 
   // -------- DIGITAL INPUTS --------

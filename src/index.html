@@ -48,7 +48,7 @@
 
         <div id="clock">XX:XX</div>
 
-        <div id="temp">°</div>
+        <div id="temp">°c</div>
 
 
         <div class="speedbox">
@@ -160,25 +160,26 @@
 
       <!-- PAGE 3: Example settings/info page -->
       <div class="page">
+
         <div class="firstColumn">
           
-          <div class="settings">
-            <h1 style="font-size: large;">Flood Lights</h1>
-            <button id="backBtn">Home</button>
+          <div class="floodLights">
+            <h1 style="font-size: xx-large; color: aliceblue;">Flood Lights</h1>
+            <!-- <button id="backBtn">Home</button> -->
           </div>
           
           <div class="roofSliders">
 
             <div class="slideBox">
-              <div id="leftLight" class="sliderNumber">null</div>
+              <div id="leftLight" class="sliderNumber">0</div>
               <input id="leftLightSlider" type="range" class="vertical-slider" min="0" max="100" value="0">
             </div>
             <div class="slideBox">
-            <div id="centerLight" class="sliderNumber">null</div>
+            <div id="centerLight" class="sliderNumber">0</div>
               <input id="centerLightSlider" type="range" class="vertical-slider" min="0" max="100" value="0">
             </div>
             <div class="slideBox">
-            <div id="rightLight"  class="sliderNumber">null</div>
+            <div id="rightLight"  class="sliderNumber">0</div>
               <input id="rightLightSlider" type="range" class="vertical-slider" min="0" max="100" value="0">
             </div>
 
@@ -186,35 +187,35 @@
 
         </div>
 
-          
 
-        <nav role="navigation">
-          <div id="menuToggle">
-        
-        
-            <ul id="menu">
+        <div class="secondColumn">        
 
-              <div id="rgbController" style="border-radius: 50%;">
+        <div class="cabLights">
+          <h1 style="font-size: xx-large; color: aliceblue;">Cab Lights</h1>  
+        </div>
 
-                <div id="sContainer">
-                  <canvas id="circularSlider" width="200" 
-                      height="200"></canvas>
-                  <div id="sValue"></div>
+          <nav role="navigation">
+            <div id="menuToggle">                  
+              <ul id="menu">
+
+                <div id="rgbController" style="border-radius: 50%;">
+                  <div id="sContainer">
+                    <canvas id="circularSlider" width="200" 
+                        height="200"></canvas>
+                    <div id="sValue"></div>
+                  </div>
                 </div>
-              </div>
 
-           </ul>
+              </ul>
+            </div>
+          </nav>
 
-          </div>
-
-        </nav>
-
-
+        <div class="rgbButtons">
           <button id="rgbButton1" class="rgbLight"></button>
           <button id="rgbButton2" class="rgbLight"></button>
           <button id="rgbButton3" class="rgbLight"></button>
-
-
+        </div>
+      </div>
           
         <div class="info" id="info2" style="visibility: hidden;">
 
