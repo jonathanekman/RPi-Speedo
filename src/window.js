@@ -1,8 +1,8 @@
 let updatedSpeed
 let canvas = document.querySelector("#canvas");
-let context = canvas.getContext("2d");
+let contect = canvas.getContext("2d");
 let video = document.querySelector("#video");
-let speedoVideo = document.querySelector("#speedoVideo");
+
 // const require = require('electron'); 
 // const path = require('path');                                         //Auto reload window when debugging                                //Auto reload window when debugging
 // const fs = require('fs');
@@ -13,164 +13,30 @@ window.setInterval(function(){    //catch input every 1 seconds
 }, 1000);
 
 
-let stream = null;
-
+let stream;
 function activateCam() {
-  if (stream) return; // already running
+stopCam()
+if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+  navigator.mediaDevices.getUserMedia({ video: true })
+    .then((s) => {
+      stream = s;               // save the stream in a variable
+      video.srcObject = stream;
+      video.play();
+    });
+}  
 
-  const mainVideo   = document.getElementById("video");
-  const speedoVideo = document.getElementById("speedoVideo");
-
-  navigator.mediaDevices.getUserMedia({
-    video: { facingMode: "user" },
-    audio: false
-  })
-  .then(s => {
-    stream = s;
-
-    if (mainVideo) {
-      mainVideo.srcObject = stream;
-      mainVideo.muted = true;   // required for autoplay
-      mainVideo.play();
-    }
-
-    if (speedoVideo) {
-      speedoVideo.srcObject = stream;
-      speedoVideo.muted = true; // required for autoplay
-      speedoVideo.play();
-    }
-  })
-  .catch(err => {
-    console.error("Camera error:", err);
-  });
 }
 
-
-// if((navigator.mediaDevices && navigator.mediaDevices.getUserMedia) != null){
-//   navigator.mediaDevices.getUserMedia({video : true}).then((stream) => {
-//       video.srcObject = stream;
-//       video.play();
-//   });
-// }
-// }
-
-function stopCam() {
-  if (!stream) return;
-
-  stream.getTracks().forEach(t => t.stop());
-  stream = null;
-
-  if (video) video.srcObject = null;
-  if (speedoVideo) speedoVideo.srcObject = null;
+function stopCam () {
+  if (stream) {
+    stream.getTracks().forEach(track => track.stop()); // stops all tracks
+    video.srcObject = null; // optional: detach from video element
+  }  
 }
-
-
 
 
 const camButton = document.getElementById('camToggle')
 
-
-
-
-
-
-
-
-
-
-// window.addEventListener("DOMContentLoaded", () => {
-//   const speedoMedia = document.getElementById("speedoMedia");
-//   const speedoImage = document.getElementById("speedoImage");
-//   const speedoVideo = document.getElementById("speedoVideo");
-
-//   console.log("speedoImage element:", speedoImage);
-
-//   function blockSwipe(e) {
-//     if (e.type === "mousemove" || e.type === "touchmove") {
-//       e.stopPropagation();  // only stop swipes
-//       console.log("BLOCKEN");
-//     }
-//   }
-
-//   // Block swipe gestures on the container
-//   speedoMedia.addEventListener("mousedown", blockSwipe);
-//   speedoMedia.addEventListener("mousemove", blockSwipe);
-//   speedoMedia.addEventListener("mouseup", blockSwipe);
-//   speedoMedia.addEventListener("touchstart", blockSwipe);
-//   speedoMedia.addEventListener("touchmove", blockSwipe);
-//   speedoMedia.addEventListener("touchend", blockSwipe);
-
-//   console.log("HERE");
-//   // Click on the media toggles the image/video
-
-// speedoImage.addEventListener("pointerup", (e) => {
-//   e.stopPropagation(); // prevent swipe system
-//   console.log("Image activated");
-//   activateCam();
-// });
-
-//   // speedoImage.addEventListener("click", () => {
-// //   console.log("Image clicked!");
-// //   // speedoImage.classList.toggle("hidden");
-// //   // speedoVideo.classList.toggle("hidden");
-
-// //   if (!speedoVideo.classList.contains("hidden")) activateCam();
-// //   else stopCam();
-// // });
-// });
-
-
-// window.addEventListener("DOMContentLoaded", () => {
-//   const speedoMedia = document.getElementById("speedoMedia");
-
-//   // Activate camera when pressing media
-//   speedoMedia.addEventListener("pointerdown", (e) => {
-//     e.stopPropagation();     // prevent swipe start
-//     e.preventDefault();      // prevent drag behaviour
-
-//     console.log("MEDIA ACTIVATED");
-//     activateCam();
-//   });
-// });
-
-
-window.addEventListener("DOMContentLoaded", () => {
-  const speedoImage = document.getElementById("speedoImage");
-  const speedoVideo = document.getElementById("speedoVideo");
-const speedoMedia = document.getElementById("speedoMedia");
-
-speedoMedia.addEventListener("pointerup", (e) => {
-  e.stopPropagation();
-  toggleMedia();
-  console.log("HERE")
-});
-  // Function to toggle visibility between image and video
-  function toggleMedia() {
-    if (speedoImage.style.display !== "none") {
-      // Image is visible, so show video
-      speedoImage.style.display = "none";  // Hide image
-      speedoVideo.style.display = "block"; // Show video
-      activateCam(); // Activate camera for video
-    } else {
-      // Video is visible, so show image
-      speedoImage.style.display = "block"; // Show image
-      speedoVideo.style.display = "none";  // Hide video
-      stopCam(); // Stop the camera for image
-    }
-  }
-
-  // Attach click event to the image to toggle visibility
-  speedoImage.addEventListener("pointerup", (e) => {
-    e.stopPropagation(); // Prevent swipe system
-    toggleMedia(); // Toggle between image and video
-  });
-
-  // Attach click event to the video to toggle visibility
-  speedoVideo.addEventListener("pointerup", (e) => {
-    e.stopPropagation(); // Prevent swipe system
-    toggleMedia(); // Toggle between image and video
-  });
-});
 
 
 var coolanTemp = 50;
@@ -320,16 +186,7 @@ async function update(){
     updatedSpeed = Math.round(speed*180/100)-45;
     $("#speedbox-score").css("transform","rotate("+updatedSpeed+"deg)");
 
-    // if (faults ) {
-    //   document.getElementById("info").style.visibility = "visible";
-    //   document.getElementById("errors").innerHTML = faults;
-    //   document.getElementById("info2").style.visibility = "visible";
-    //   document.getElementById("errors2").innerHTML = faults;
-    // }
-    // else {  //it is NULL
-    //   document.getElementById("info").style.visibility = "hidden";
-    //   document.getElementById("info2").style.visibility = "hidden";
-    // }
+
 
 
     function formatTime(number) {
@@ -395,9 +252,6 @@ canvas2.addEventListener('mousedown', dragFn);
 canvas2.addEventListener('mousemove', drag);
 canvas2.addEventListener('mouseup', endFn);
 
-// canvas2.addEventListener('touchstart', dragFn);
-// canvas2.addEventListener('touchmove', drag);
-// canvas2.addEventListener('touchend', endFn);
 
 var activeButton = 0;
 
@@ -689,21 +543,18 @@ function setPage(index) {
   currentTranslate = -currentPage * window.innerWidth;
   container.style.transition = "transform 0.4s ease";
   setContainerPosition(currentTranslate);
-  if (currentPage == 0 )//|| currentPage === 1)
-    {
-      activateCam();
-      console.log('activateCam')
-    }
+  if (currentPage == 0)
+  {
+    activateCam();
+          console.log('activateCam')
+  }
   else {
-      stopCam();  
-      console.log('stopCam')
-    }
+    stopCam();
+          console.log('stopCam')
+  }
 }
 
-function touchStart(x, event) {
-  // If clicking inside speedoMedia → DO NOT START SWIPE
-  if (event.target.closest(".speedbox")) return;
-
+function touchStart(x) {
   isDragging = true;
   startX = x;
   container.style.transition = "none";
@@ -717,89 +568,35 @@ function touchMove(x) {
 
 function touchEnd(x) {
   if (!isDragging) return;
-
-  const delta = x - startX;
-
-  // If user didn't move enough → do NOTHING
-  if (Math.abs(delta) < 10) {
-    isDragging = false;
-    return;
-  }
-
   isDragging = false;
-
+  const delta = x - startX;
   if (Math.abs(delta) > window.innerWidth / 4) {
-    if (delta < 0) currentPage++;
-    else currentPage--;
+    // swipe threshold
+    if (delta < 0) currentPage++; // swipe left → next
+    else currentPage--; // swipe right → previous
   }
-
   setPage(currentPage);
 }
 
-
 /* --- Touch Events --- */
-container.addEventListener("touchstart", e => {
-  touchStart(e.touches[0].clientX, e);
-});
+container.addEventListener("touchstart", e => touchStart(e.touches[0].clientX));
+container.addEventListener("touchmove", e => touchMove(e.touches[0].clientX));
+container.addEventListener("touchend", e => touchEnd(e.changedTouches[0].clientX));
 
-container.addEventListener("touchmove", e => {
-  if (isDragging) touchMove(e.touches[0].clientX);
-});
-
-container.addEventListener("touchend", e => {
-  touchEnd(e.changedTouches[0].clientX);
-});
-
-/* --- Mouse Events --- */
-container.addEventListener("pointerdown", e => {
-  if (e.target.closest(".speedbox")) return;  
-  console.log("IMAGE MOUSEDOWN");
-  touchStart(e.clientX, e);
-});
-
-// container.addEventListener("pointerdown", e => {
-//   console.log("TARGET:", e.target);
-//   console.log("PATH:", e.composedPath());  
-//   console.log("CLASSES:", e.target.className);
-//   console.log("INSIDE SPEEDBOX:", e.target.closest(".speedbox"));
-// });
-
-
-
-container.addEventListener("pointermove", e => {
+/* --- Mouse Events (for testing on PC) --- */
+container.addEventListener("mousedown", e => touchStart(e.clientX));
+container.addEventListener("mousemove", e => {
   if (isDragging) touchMove(e.clientX);
 });
-
-container.addEventListener("pointerup", e => {
-  console.log("IMAGE MOUSEUP");  
-  touchEnd(e.clientX);
-});
-
+container.addEventListener("mouseup", e => touchEnd(e.clientX));
 container.addEventListener("mouseleave", e => {
   if (isDragging) touchEnd(e.clientX);
 });
-
-
-// /* --- Touch Events --- */
-// container.addEventListener("touchstart", e => touchStart(e.touches[0].clientX));
-// container.addEventListener("touchmove", e => touchMove(e.touches[0].clientX));
-// container.addEventListener("touchend", e => touchEnd(e.changedTouches[0].clientX));
-
-// /* --- Mouse Events (for testing on PC) --- */
-// container.addEventListener("mousedown", e => touchStart(e.clientX));
-// container.addEventListener("mousemove", e => {
-//   if (isDragging) touchMove(e.clientX);
-// });
-// container.addEventListener("mouseup", e => touchEnd(e.clientX));
-// container.addEventListener("mouseleave", e => {
-//   if (isDragging) touchEnd(e.clientX);
-// });
 
 /* --- Initialize on middle page --- */
 window.addEventListener("load", () => {
   setPage(currentPage);
 });
-
 
 // Dont move pages when moving a slider 
   document.querySelectorAll('input[type="range"]').forEach(slider => {
@@ -1103,5 +900,36 @@ function handleMQTT(topic, payload) {
 window.api.onMqttBatch((batch) => {
   for (const [topic, payload] of batch) {
     handleMQTT(topic, payload);
+  }
+});
+
+
+/* --- stadjan image / webcam toggle --- */
+let stadjanStream = null;
+const stadjanImg = document.getElementById('stadjanImg');
+const stadjanCam = document.getElementById('stadjanCam');
+const stadjanHit = document.getElementById('stadjanHit');
+
+[stadjanHit, stadjanCam].forEach(el => {
+  el.addEventListener('mousedown', e => e.stopPropagation());
+  el.addEventListener('mouseup',   e => e.stopPropagation());
+});
+
+stadjanHit.addEventListener('click', () => {
+  stadjanHit.style.display = 'none';
+  stadjanCam.style.display = 'block';
+  navigator.mediaDevices.getUserMedia({ video: true }).then(s => {
+    stadjanStream = s;
+    stadjanCam.srcObject = s;
+  });
+});
+
+stadjanCam.addEventListener('click', () => {
+  stadjanCam.style.display = 'none';
+  stadjanHit.style.display = 'block';
+  if (stadjanStream) {
+    stadjanStream.getTracks().forEach(t => t.stop());
+    stadjanStream = null;
+    stadjanCam.srcObject = null;
   }
 });

@@ -21,9 +21,8 @@
       <div class="page">
         <div>
           <!-- <h1>Left Page</h1> -->
-          <!-- <p>Swipe right → to go to the Speedometer</p>
-          <button id="backBtn2">Back to Speedometer</button> -->
-            <div id="kamera" >
+          <!-- <p>Swipe right → to go to the Speedometer</p> -->
+            <div id="kamera" ">
               <video id="video" width="100%" autoplay style="transform: scale(-1,1);"></video >
               <canvas id="canvas"></canvas> 
             </div>                    
@@ -37,8 +36,6 @@
         <link href="https://fonts.googleapis.com/css?family=Oswald" rel="stylesheet">
         <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.4.0/css/font-awesome.min.css">
 
-
-
         <div id="kmh">xx</div>
 
         <div id="clock">XX:XX</div>
@@ -48,21 +45,11 @@
 
         <div class="speedbox">
           <div class="speedbox__score" id="speedbox-score"></div>
-          <div class="speedometer-media" id="speedoMedia">
-            <canvas id="speedboxCanvas"></canvas>
-              <img src="stadjan.jpg" class="background" id="speedoImage"> 
-              <video id="speedoVideo" autoplay muted playsinline></video>
-            </div>
-
-
-
+        <img id="stadjanImg" src="stadjan.jpg" alt="städjan" class="background">
+        <video id="stadjanCam" class="background" autoplay playsinline style="display:none; cursor:pointer; object-fit:cover; z-index:200;  transform: scale(-1,1);"></video>
+        <div id="stadjanHit" class="background" style="background:transparent; z-index:200; cursor:pointer;"></div>
 
             <div class="fart">
-              <!-- <img src="splash_white.png" class="logo"> -->
-              <!-- <div id="kmh">xx</div> -->
-
-
-
 
               <p class="numbers" style="margin-top: -22%; margin-left: 153%;">140</p>
               <p class="numbers" style="margin-top: -65%; margin-left: 167%;">130</p>
@@ -112,7 +99,7 @@
               </div>
 
             </div>
-            <!-- <div class="speedbox__base"></div> -->
+
 
         </div>
 
@@ -146,10 +133,6 @@
 </div>
 
 
-        <!-- <label class="toggle" > 
-          <input class="toggle__input" name="" type="checkbox" id="camToggle">
-          <div class="toggle__fill"></div>
-        </label> -->
 
 
 

@@ -53,20 +53,10 @@ body {
 #kamera {
   position: absolute;
   inset: 0;
-  z-index: 0;
-  visibility: hidden;
+  z-index: 35;
+  /* visibility: hidden; */
   pointer-events: none;
-}
-
-
-.page:nth-child(1) #kamera {
-  visibility: visible;
-}
-
-.page:nth-child(2) #kamera,
-.page:nth-child(3) #kamera {
-  visibility: hidden;
-  pointer-events: none;
+  width: 100%;
 }
 
 #kamera video,
@@ -91,7 +81,6 @@ body {
   align-items: center;
 
   background: radial-gradient(greenyellow 30%, #000 70%);
-  z-index: 0;
 }
 
 #speedbox-score {
@@ -103,7 +92,6 @@ body {
   z-index: 30;
   cursor: pointer;
   transition: transform 0.3s ease;
-  pointer-events: none;
 }
 
 /* Speedometer rings */
@@ -129,89 +117,6 @@ body {
   background: #000;
 }
 
-
-
-/* Container inside speedometer */
-.speedometer-media {
-  position: absolute;
-  width: 75vh;
-  height: 75vh;
-  top: 12%;
-  border-radius: 50%;
-  overflow: hidden;
-  z-index: 30;
-  pointer-events: auto;
-  outline: 3px solid red;
-  cursor: pointer;
-}
-
-/* Image + video share same space */
-.speedoMedia video,
-.speedoMedia img {
-  position: absolute;
-  top: 0; left: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-#speedoMedia canvas {
-  pointer-events: none;
-}
-
-/* Show image by default */
-#speedoVideo {
-  display: none;
-  width: 100%;
-  height: 100%;
-  position: absolute;
-  top: 0;
-  left: 0;
-  z-index: 1001;
-  cursor: pointer;
-  pointer-events: auto;
-}
-#speedoImage {
-  position: absolute !important;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  cursor: pointer;
-  /* z-index: 1001; */
-  pointer-events: auto;
-
-
-  display: block !important;
-  opacity: 1 !important;
-  z-index: 2 !important;
-  outline: 10px solid red !important;    
-    background: rgba(255,0,0,0.3); 
-}
-
-/* When showing video */
-.speedometer-media.show-video #speedoImage {
-  opacity: 0;
-  z-index: 1;
-  pointer-events: auto;
-}
-
-.speedometer-media.show-video #speedoVideo {
-  opacity: 1;
-  z-index: 2;
-  pointer-events: none;
-}
-
-.speedoMedia video.hidden {
-  display: none;
-}
-
-.speedoMedia img.hidden {
-  display: none;
-}
-
-
-
 /* ======================================================
    SPEEDOMETER CONTENT
    ====================================================== */
@@ -221,7 +126,7 @@ body {
   height: 75vh;
   border-radius: 50%;
   top: 12%;
-  /* z-index: 30; */
+  z-index: 30;
 }
 
 .fart {
@@ -234,7 +139,6 @@ body {
   color: #fff;
   text-align: right;
   z-index: 40;
-  pointer-events: none;
 }
 
 .numbers {
@@ -242,11 +146,6 @@ body {
   font-family: sevenSegment;
   color: #fff;
   z-index: 50;
-  pointer-events: none;  
-}
-
-.fart, .numbers, .cirkles, .cirkles div, #speedbox-score {
-  pointer-events: none;
 }
 
 /* ======================================================
@@ -266,7 +165,6 @@ body {
   position: absolute;
   border: 4px solid #fff;
   border-radius: 50%;
-  pointer-events: none;  
 }
 
 .centerCircle {
@@ -338,7 +236,6 @@ body {
   color: #8b8b8b;
   transform: translate(-50%, -50%);
   z-index: 20;
-  pointer-events: none;  
 }
 
 #kmh {
@@ -346,7 +243,6 @@ body {
   left: 50%;
   font-size: 50px;
   color: greenyellow;
-  pointer-events: none;  
 }
 
 #clock { top: 4%; left: 5%; font-size: 7vh;}
@@ -372,6 +268,7 @@ body {
   left: 50%;
   transform: translate(-50%, -50%);
   z-index: 0;
+  pointer-events: none;
 }
 
 /* ======================================================
