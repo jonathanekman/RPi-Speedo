@@ -244,7 +244,7 @@ const val =
 document.getElementById('sValue');
 const x = canvas2.width / 2;
 const y = canvas2.height / 2;
-const r = 80;
+const r = 100;
 let a = Math.PI / 4;
 drawFn();
 valFn();
@@ -261,12 +261,12 @@ ctx.clearRect(0, 0, canvas2.width, canvas2.height);
 ctx.beginPath();
 ctx.arc(x, y, r, 0, Math.PI * 2);
 ctx.strokeStyle = '#bdbbbb';
-ctx.lineWidth = 25;
+ctx.lineWidth = 30;
 ctx.stroke();
 ctx.beginPath();
 const handleX = x + Math.cos(a) * r;
 const handleY = y + Math.sin(a) * r;
-ctx.arc(handleX, handleY, 8, 0, Math.PI * 2);
+ctx.arc(handleX, handleY, 20, 0, Math.PI * 2);
 ctx.fillStyle = 'white';
 var circleColor = 'rgb(' + red + ',' + green + ',' + blue + ')';
 ctx.fill();
@@ -609,7 +609,15 @@ window.addEventListener("load", () => {
   slider.addEventListener('mouseup', e => e.stopPropagation());
 });
 
-// Dont move pages when pressing buttons 
+// Circular slider: stop page swipe + enable touch drag
+canvas2.addEventListener('touchstart', e => { e.stopPropagation(); e.preventDefault(); dragFn(e.touches[0]); }, { passive: false });
+canvas2.addEventListener('touchmove',  e => { e.stopPropagation(); e.preventDefault(); drag(e.touches[0]); },   { passive: false });
+canvas2.addEventListener('touchend',   e => { e.stopPropagation(); endFn(); });
+['mousedown', 'mousemove', 'mouseup'].forEach(evt => {
+  canvas2.addEventListener(evt, e => e.stopPropagation());
+});
+
+// Dont move pages when pressing buttons
   document.querySelectorAll('button').forEach(button => {
   button.addEventListener('touchstart', e => e.stopPropagation());
   button.addEventListener('touchmove', e => e.stopPropagation());
