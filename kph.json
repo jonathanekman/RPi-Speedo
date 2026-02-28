@@ -1,9 +1,9 @@
 {
   "errors": "test2",
-  "speed": 69,
-  "leftBlinker": 0,
-  "rightBlinker": 0,
-  "fuel": 69,
+  "speed": 120,
+  "leftBlinker": 1,
+  "rightBlinker": 1,
+  "fuel": 68,
   "kamera": 0,
   "leftLight": 0,
   "rightLight": 0,
@@ -14,18 +14,18 @@
   "coolanTemp": 4,
   "outsideTemp": -1337,
   "btn1Color": [
-    13,
-    25,
+    255,
+    202,
     0
   ],
   "btn2Color": [
-    59,
-    118,
+    255,
+    17,
     0
   ],
   "btn3Color": [
-    100,
-    200,
+    255,
+    106,
     0
   ]
 }

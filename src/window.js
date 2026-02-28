@@ -256,47 +256,65 @@ canvas2.addEventListener('mouseup', endFn);
 var activeButton = 0;
 
 
+function hsvToRgb(h) {
+    const c = 1, x = c * (1 - Math.abs((h / 60) % 2 - 1));
+    let r, g, b;
+    if      (h < 60)  { r=c; g=x; b=0; }
+    else if (h < 120) { r=x; g=c; b=0; }
+    else if (h < 180) { r=0; g=c; b=x; }
+    else if (h < 240) { r=0; g=x; b=c; }
+    else if (h < 300) { r=x; g=0; b=c; }
+    else              { r=c; g=0; b=x; }
+    return [Math.round(r*255), Math.round(g*255), Math.round(b*255)];
+}
+
+function rgbToHue(r, g, b) {
+    r /= 255; g /= 255; b /= 255;
+    const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+    if (d === 0) return 0;
+    let h;
+    if      (max === r) h = ((g - b) / d + 6) % 6 * 60;
+    else if (max === g) h = ((b - r) / d + 2) * 60;
+    else                h = ((r - g) / d + 4) * 60;
+    return h;
+}
+
 function drawFn() {
 ctx.clearRect(0, 0, canvas2.width, canvas2.height);
-ctx.beginPath();
-ctx.arc(x, y, r, 0, Math.PI * 2);
-ctx.strokeStyle = '#bdbbbb';
-ctx.lineWidth = 30;
-ctx.stroke();
+
+// Draw rainbow track
+const segments = 360;
+for (let i = 0; i < segments; i++) {
+    const startAngle = (i / segments) * Math.PI * 2;
+    const endAngle   = ((i + 1) / segments) * Math.PI * 2;
+    ctx.beginPath();
+    ctx.arc(x, y, r, startAngle, endAngle);
+    ctx.strokeStyle = `hsl(${i}, 100%, 50%)`;
+    ctx.lineWidth = 30;
+    ctx.stroke();
+}
+
+// Draw handle
 ctx.beginPath();
 const handleX = x + Math.cos(a) * r;
 const handleY = y + Math.sin(a) * r;
 ctx.arc(handleX, handleY, 20, 0, Math.PI * 2);
 ctx.fillStyle = 'white';
-var circleColor = 'rgb(' + red + ',' + green + ',' + blue + ')';
 ctx.fill();
 }
+
+function setSliderFromRGB(r, g, b) {
+    red = r; green = g; blue = b;
+    const hue = rgbToHue(r, g, b);
+    a = hue * Math.PI / 180;
+    drawFn();
+    document.getElementById("rgbController").style.backgroundColor =
+        'rgb(' + r + ',' + g + ',' + b + ')';
+}
+
 function valFn() {
-    value = Math.round(a * 150 / Math.PI);
-    if (value < 0) {
-        value = value + 300;
-    }
-
-    if (value >= 0 && value < 5) { // white
-        red = green = blue = 255;
-    } else if (value >= 5 && value < 100) {
-        red = Math.round(value * 2.5);
-        green = 0;
-        blue = Math.round(red / 2);
-    } else if (value >= 100 && value < 200) {
-        green = Math.round((value - 100) * 2.5);
-        red = Math.round(green / 2);
-        blue = 0;
-    } else if (value >= 200 && value < 300) {
-        blue = Math.round((value - 200) * 2.5);
-        red = 0;
-        green = Math.round(blue / 2);
-    }
-
-    // Clamp values to 0-255
-    red = Math.min(Math.max(red, 0), 255);
-    green = Math.min(Math.max(green, 0), 255);
-    blue = Math.min(Math.max(blue, 0), 255);
+    const hue = ((a % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2) * 180 / Math.PI;
+    [red, green, blue] = hsvToRgb(hue);
 
     let circleColor = 'rgb(' + red + ',' + green + ',' + blue + ')';
     // console.log(circleColor);
@@ -712,14 +730,17 @@ class RGBButton {
 
     if (RGBButton.activeButton === 1) {
       sendRGB(sendRGBprev[0], sendRGBprev[1], sendRGBprev[2], Button1Color[0], Button1Color[1], Button1Color[2]);
+      setSliderFromRGB(...Button1Color);
     }
 
     if (RGBButton.activeButton === 2) {
       sendRGB(sendRGBprev[0], sendRGBprev[1], sendRGBprev[2], Button2Color[0], Button2Color[1], Button2Color[2]);
+      setSliderFromRGB(...Button2Color);
     }
 
     if (RGBButton.activeButton === 3) {
       sendRGB(sendRGBprev[0], sendRGBprev[1], sendRGBprev[2], Button3Color[0], Button3Color[1], Button3Color[2]);
+      setSliderFromRGB(...Button3Color);
     }
 
 
@@ -884,15 +905,15 @@ function handleMQTT(topic, payload) {
   }
 
   // -------- BLINKERS (example) --------
-  if (topic === "controllerBox/D0") {
-    document.getElementById("leftBlinker").style.visibility =
-      payload === "1" ? "visible" : "hidden";
-  }
+  // if (topic === "controllerBox/D0") {
+  //   document.getElementById("leftBlinker").style.visibility =
+  //     payload === "1" ? "visible" : "hidden";
+  // }
 
-  if (topic === "controllerBox/D1") {
-    document.getElementById("rightBlinker").style.visibility =
-      payload === "1" ? "visible" : "hidden";
-  }
+  // if (topic === "controllerBox/D1") {
+  //   document.getElementById("rightBlinker").style.visibility =
+  //     payload === "1" ? "visible" : "hidden";
+  // }
 }
 
 
