@@ -44,11 +44,10 @@
 
 
         <div class="speedbox">
-          <div class="speedbox__score" id="speedbox-score">            
-          </div>
+          <canvas id="speedbox-score" class="speedbox__score"></canvas>
         
-          <img id="stadjanImg" src="stadjan.jpg" alt="städjan" class="background">
-          <video id="stadjanCam" class="background" autoplay playsinline style="display:none; cursor:pointer; object-fit:cover; z-index:200;  transform: scale(-1,1);"></video>
+          <img id="stadjanImg"  src="stadjan.jpg" alt="städjan" class="background" >
+          <video id="stadjanCam" class="background_video" autoplay playsinline ></video>
           <div id="stadjanHit" class="background" style="background:transparent; z-index:200; cursor:pointer;">            
           </div>
 
@@ -138,7 +137,10 @@
   </div>
 </div>
 
-
+<div class="altitudegraph">
+  <canvas id="altitudeCanvas"></canvas>
+  <div id="altitudeLabel"></div>
+</div>
 
 
 

@@ -5,7 +5,7 @@ console.log("preload.js loaded");
 // Whitelist channels
 const validChannels = {
   send: ['puttonPress'],
-  receive: ['camera', 'serialData', 'mqttMessage', 'mqttBatch'],
+  receive: ['camera', 'serialData', 'mqttMessage', 'mqttBatch', 'gpsData', 'gpsStatus'],
   invoke: [
     'listSerialPorts',
     'serialWrite',
@@ -43,11 +43,25 @@ contextBridge.exposeInMainWorld("api", {
 
     serialClose: () => ipcRenderer.invoke("serialClose"),
 
-    // 🔥 New batched MQTT
+    // Batched MQTT
     onMqttBatch: (cb) => {
       const handler = (_e, batch) => cb(batch);
       ipcRenderer.on("mqttBatch", handler);
       return () => ipcRenderer.removeListener("mqttBatch", handler);
+    },
+
+    // GPS data from serial
+    onGpsData: (cb) => {
+      const handler = (_e, data) => cb(data);
+      ipcRenderer.on("gpsData", handler);
+      return () => ipcRenderer.removeListener("gpsData", handler);
+    },
+
+    // GPS connection status
+    onGpsStatus: (cb) => {
+      const handler = (_e, connected) => cb(connected);
+      ipcRenderer.on("gpsStatus", handler);
+      return () => ipcRenderer.removeListener("gpsStatus", handler);
     },
 });
 

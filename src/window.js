@@ -1,3 +1,44 @@
+const speedCanvas = document.getElementById('speedbox-score');
+const speedCtx = speedCanvas.getContext('2d');
+// speedCanvas.width = speedCanvas.height = Math.round(window.innerHeight * 0.8);
+
+function drawSpeedometer(speed) {
+  speedCanvas.width = speedCanvas.height = Math.round(window.innerHeight * 0.9);
+    const w = speedCanvas.width;
+    const cx = w / 2, cy = w / 2;
+    const r = cx * 0.88;
+    const lineW = cx * 0.08;
+    const startAngle = 3 * Math.PI / 4;
+    const fullSweep  = 3 * Math.PI / 2;
+    const speedAngle = startAngle + (Math.min(speed, 140) / 140) * fullSweep;
+
+    speedCtx.clearRect(0, 0, w, w);
+
+    // Dark background track
+    speedCtx.beginPath();
+    speedCtx.arc(cx, cy, r, startAngle, startAngle + fullSweep, false);
+    speedCtx.strokeStyle = '#132a38';
+    speedCtx.lineWidth = lineW;
+    speedCtx.lineCap = 'round';
+    speedCtx.stroke();
+
+    // Speed arc
+    if (speed > 0) {
+        speedCtx.beginPath();
+        speedCtx.arc(cx, cy, r, startAngle, speedAngle, false);
+        speedCtx.strokeStyle = '#5898ebff';
+        speedCtx.lineWidth = lineW;
+        speedCtx.lineCap = 'round';
+        speedCtx.stroke();
+    }
+
+    // Black inner circle
+    speedCtx.beginPath();
+    speedCtx.arc(cx, cy, r - lineW * 1.5, 0, Math.PI * 2);
+    speedCtx.fillStyle = '#000';
+    speedCtx.fill();
+}
+
 let updatedSpeed
 let canvas = document.querySelector("#canvas");
 let contect = canvas.getContext("2d");
@@ -143,25 +184,8 @@ async function update(){
 
   // $.getJSON(filePath, function(json) {  //Reading Json
     // console.log(json.speed);
-    var speed = json.speed;
     var fuelcapacity = json.fuel;
     var faults = json.errors;
-    
-    // options4.percent = json.coolanTemp;
-    // coolanTemp = json.coolanTemp;
-
-    // options1.percent = json.heaterTank;
-    // heaterTank = json.heaterTank;
-
-    // options3.percent = json.engineVolt;
-    // engineVolt = json.engineVolt;
-
-    // options2.percent = json.camperVolt;
-    // camperVolt = json.camperVolt;
-
-    // outsideTemp = json.outsideTemp;
-
-    document.getElementById("kmh").innerHTML = speed + " km/h";
 
     document.getElementById("fuelcapacity").innerHTML = fuelcapacity + "%";
 
@@ -182,9 +206,6 @@ async function update(){
     //   document.getElementById("kamera").style.visibility = "visible";
     // }
 
-
-    updatedSpeed = Math.round(speed*180/100)-45;
-    $("#speedbox-score").css("transform","rotate("+updatedSpeed+"deg)");
 
 
 
@@ -905,15 +926,15 @@ function handleMQTT(topic, payload) {
   }
 
   // -------- BLINKERS (example) --------
-  // if (topic === "controllerBox/D0") {
-  //   document.getElementById("leftBlinker").style.visibility =
-  //     payload === "1" ? "visible" : "hidden";
-  // }
+  if (topic === "controllerBox/D0") {
+    document.getElementById("leftBlinker").style.visibility =
+      payload === "1" ? "visible" : "hidden";
+  }
 
-  // if (topic === "controllerBox/D1") {
-  //   document.getElementById("rightBlinker").style.visibility =
-  //     payload === "1" ? "visible" : "hidden";
-  // }
+  if (topic === "controllerBox/D1") {
+    document.getElementById("rightBlinker").style.visibility =
+      payload === "1" ? "visible" : "hidden";
+  }
 }
 
 
@@ -929,6 +950,102 @@ function handleMQTT(topic, payload) {
 window.api.onMqttBatch((batch) => {
   for (const [topic, payload] of batch) {
     handleMQTT(topic, payload);
+  }
+});
+
+// ===========================================================
+// GPS DATA — live speed, time, altitude, satellites
+// ===========================================================
+const altCanvas = document.getElementById('altitudeCanvas');
+const altCtx = altCanvas.getContext('2d');
+const altLabel = document.getElementById('altitudeLabel');
+const altHistory = []; // { time, altitude }
+const ALT_WINDOW = 5 * 60 * 1000; // 5 minutes in ms
+
+function drawAltitudeGraph() {
+  const rect = altCanvas.parentElement.getBoundingClientRect();
+  altCanvas.width = rect.width * devicePixelRatio;
+  altCanvas.height = rect.height * devicePixelRatio;
+  altCtx.scale(devicePixelRatio, devicePixelRatio);
+  const w = rect.width;
+  const h = rect.height;
+
+  altCtx.clearRect(0, 0, w, h);
+
+  if (altHistory.length < 2) return;
+
+  const now = Date.now();
+  const minTime = now - ALT_WINDOW;
+
+  // Find min/max altitude for scaling
+  let minAlt = Infinity, maxAlt = -Infinity;
+  for (const p of altHistory) {
+    if (p.altitude < minAlt) minAlt = p.altitude;
+    if (p.altitude > maxAlt) maxAlt = p.altitude;
+  }
+
+  // Add some padding to range
+  const range = maxAlt - minAlt;
+  const pad = range < 1 ? 5 : range * 0.2;
+  minAlt -= pad;
+  maxAlt += pad;
+
+  const toX = (t) => ((t - minTime) / ALT_WINDOW) * w;
+  const toY = (a) => h - ((a - minAlt) / (maxAlt - minAlt)) * h;
+
+  // Fill area under the line
+  altCtx.beginPath();
+  altCtx.moveTo(toX(altHistory[0].time), h);
+  for (const p of altHistory) {
+    altCtx.lineTo(toX(p.time), toY(p.altitude));
+  }
+  altCtx.lineTo(toX(altHistory[altHistory.length - 1].time), h);
+  altCtx.closePath();
+  altCtx.fillStyle = 'rgba(88, 152, 235, 0.15)';
+  altCtx.fill();
+
+  // Draw the line
+  altCtx.beginPath();
+  altCtx.moveTo(toX(altHistory[0].time), toY(altHistory[0].altitude));
+  for (let i = 1; i < altHistory.length; i++) {
+    altCtx.lineTo(toX(altHistory[i].time), toY(altHistory[i].altitude));
+  }
+  altCtx.strokeStyle = '#5898eb';
+  altCtx.lineWidth = 2;
+  altCtx.lineJoin = 'round';
+  altCtx.stroke();
+}
+
+window.api.onGpsStatus((connected) => {
+  if (connected) {
+    removeAlarm("GPS");
+  } else {
+    addAlarm("GPS", "No connection with USB GPS!");
+  }
+});
+
+window.api.onGpsData((gps) => {
+  if (gps.speed !== null) {
+    const speed = Math.round(gps.speed);
+    document.getElementById("kmh").innerHTML = speed;
+    drawSpeedometer(speed);
+  }
+
+  if (gps.time) {
+    document.getElementById("clock").innerHTML = gps.time.substring(0, 5);
+  }
+
+  if (gps.altitude !== null) {
+    const now = Date.now();
+    altHistory.push({ time: now, altitude: gps.altitude });
+
+    // Remove entries older than 5 minutes
+    while (altHistory.length > 0 && altHistory[0].time < now - ALT_WINDOW) {
+      altHistory.shift();
+    }
+
+    altLabel.textContent = gps.altitude + ' m';
+    drawAltitudeGraph();
   }
 });
 

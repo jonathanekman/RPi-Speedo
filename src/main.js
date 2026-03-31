@@ -22,6 +22,110 @@ let mainWindow = null;
 const latestMQTT = new Map();
 let mqttFlushScheduled = false;
 
+// ===========================================================
+// GPS SERIAL READER (Prolific USB-to-Serial)
+// ===========================================================
+const GPS_VID = '067B';
+const GPS_PID = '2303';
+let gpsPort = null;
+let gpsBuffer = '';
+let gpsData = { speed: null, time: null, altitude: null, satellites: null };
+
+function startGPS() {
+  SerialPort.list().then(ports => {
+    const gpsDevice = ports.find(p =>
+      p.vendorId?.toUpperCase() === GPS_VID &&
+      p.productId?.toUpperCase() === GPS_PID
+    );
+
+    if (!gpsDevice) {
+      console.warn('[GPS] Device not found (VID:067B PID:2303). Retrying in 5s...');
+      sendGPSStatus(false);
+      setTimeout(startGPS, 5000);
+      return;
+    }
+
+    console.log('[GPS] Found device on', gpsDevice.path);
+    sendGPSStatus(true);
+
+    gpsPort = new SerialPort({
+      path: gpsDevice.path,
+      baudRate: 4800,
+      autoOpen: true,
+      lock: false
+    });
+
+    gpsPort.on('data', chunk => {
+      gpsBuffer += chunk.toString('utf8');
+      let lines = gpsBuffer.split('\n');
+      gpsBuffer = lines.pop(); // keep incomplete line in buffer
+
+      for (const line of lines) {
+        parseNMEA(line.trim());
+      }
+    });
+
+    gpsPort.on('error', err => {
+      console.error('[GPS] Serial error:', err.message);
+      sendGPSStatus(false);
+    });
+
+    gpsPort.on('close', () => {
+      console.warn('[GPS] Port closed. Reconnecting in 5s...');
+      gpsPort = null;
+      sendGPSStatus(false);
+      setTimeout(startGPS, 5000);
+    });
+  }).catch(err => {
+    console.error('[GPS] Error listing ports:', err.message);
+    setTimeout(startGPS, 5000);
+  });
+}
+
+function formatTimeGMT1(t) {
+  if (!t || t.length < 6) return null;
+  const h = (parseInt(t.substring(0, 2), 10) + 1) % 24;
+  const m = parseInt(t.substring(2, 4), 10);
+  const s = parseInt(t.substring(4, 6), 10);
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+
+function parseNMEA(line) {
+  const parts = line.split(',');
+  if (!parts.length) return;
+
+  // GGA - altitude + satellites
+  if (parts[0].endsWith('GGA')) {
+    if (parts.length > 9) {
+      if (parts[7]) gpsData.satellites = parts[7];
+      if (parts[9]) gpsData.altitude = Math.round(parseFloat(parts[9]) * 10) / 10;
+    }
+  }
+
+  // RMC - speed + time
+  if (parts[0].endsWith('RMC')) {
+    if (parts.length > 7 && parts[2] === 'A') {
+      gpsData.time = formatTimeGMT1(parts[1]);
+      const knots = parseFloat(parts[7]);
+      gpsData.speed = Math.round(knots * 1.852 * 100) / 100; // knots to km/h
+
+      sendGPSToRenderer();
+    }
+  }
+}
+
+function sendGPSToRenderer() {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('gpsData', gpsData);
+  }
+}
+
+function sendGPSStatus(connected) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('gpsStatus', connected);
+  }
+}
+
 
 
 // ===========================================================
@@ -442,7 +546,8 @@ aedes.on('publish', (packet, client) => {
 app.whenReady().then(() => {
   console.log('Electron ready — starting MQTT broker');
   startMQTTBroker();
-createWindow();
+  startGPS();
+  createWindow();
   // const win = new BrowserWindow({
   //   width: 1920,
   //   height: 1080,
