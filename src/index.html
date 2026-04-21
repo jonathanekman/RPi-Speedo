@@ -40,7 +40,8 @@
 
         <div id="clock">XX:XX</div>
 
-        <div id="temp">°c</div>
+        <div id="temp">--</div>
+        <div id="tempUnit">°c</div>
 
 
         <div class="speedbox">
@@ -148,7 +149,22 @@
   </div>  <!--End of page 2-->
 
       <!-- PAGE 3: Example settings/info page -->
-      <div class="page">
+      <div class="page" style="position: relative;">
+        <button id="exitBtn" onclick="window.api.quitApp()" style="
+          position: absolute;
+          top: 10px;
+          right: 10px;
+          z-index: 999;
+          width: 40px;
+          height: 40px;
+          border-radius: 50%;
+          border: none;
+          background: rgba(255, 50, 50, 0.8);
+          color: white;
+          font-size: 20px;
+          font-weight: bold;
+          cursor: pointer;
+        ">✕</button>
 
         <div class="firstColumn">
           

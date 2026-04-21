@@ -399,28 +399,28 @@ var gr4 = document.getElementById('graph4');
 var options1 = {
     percent: heaterTank, // gr1.getAttribute('data-percent') /*|| 25*/,
     // use screen.width (screen.width - 5)
-    size: gr1.getAttribute('data-size') || (screen.height*0.9),
+    size: gr1.getAttribute('data-size') || (screen.height*1.05),
     lineWidth: gr1.getAttribute('data-line') || 20,
     rotate: gr1.getAttribute('data-rotate') || 90  /*||45 to rotate 45 degres*/
 }
 
 var options2 = {
   percent:  camperVolt, //gr2.getAttribute('data-percent'),
-  size: gr2.getAttribute('data-size') || (screen.height*0.9),
+  size: gr2.getAttribute('data-size') || (screen.height*1.05),
   lineWidth: gr2.getAttribute('data-line') || 20,
   rotate: gr2.getAttribute('data-rotate') || 95  
 }
 
 var options3 = {
   percent:  engineVolt, //gr3.getAttribute('data-percent'),
-  size: gr3.getAttribute('data-size') || (screen.height*0.9),
+  size: gr3.getAttribute('data-size') || (screen.height*1.05),
   lineWidth: gr3.getAttribute('data-line') || 20,
   rotate: gr3.getAttribute('data-rotate') || -95 
 }
 
 var options4 = {
   percent:  coolanTemp, //gr4.getAttribute('data-percent'),
-  size: gr4.getAttribute('data-size') || (screen.height*0.9),
+  size: gr4.getAttribute('data-size') || (screen.height*1.05),
   lineWidth: gr4.getAttribute('data-line') || 20,
   rotate: gr4.getAttribute('data-rotate') || -90 
 }
@@ -815,18 +815,16 @@ function scaleTo255(value) {
     const value  = slider.value;
     document.getElementById("centerLight").textContent = value;
     const newValue = scaleTo255(value);
-  sendRGB(sendRGBprev[0], Number(newValue), sendRGBprev[2], sendRGBprev[3], sendRGBprev[4], sendRGBprev[5])    
+    sendRGB(sendRGBprev[0], sendRGBprev[1], Number(newValue), sendRGBprev[3], sendRGBprev[4], sendRGBprev[5])
   });
 
   document.getElementById("rightLightSlider").addEventListener("input", () => {
-  const slider = document.getElementById("rightLightSlider");
-  const value  = slider.value;
-  document.getElementById("rightLight").textContent = value;
-  const newValue = scaleTo255(value);
-  // Send new slider value to main
-  // window.api.send("puttonPress", { rightLight: Number(value) });
-  sendRGB(sendRGBprev[0], sendRGBprev[1], Number(newValue), sendRGBprev[3], sendRGBprev[4], sendRGBprev[5])
-});
+    const slider = document.getElementById("rightLightSlider");
+    const value  = slider.value;
+    document.getElementById("rightLight").textContent = value;
+    const newValue = scaleTo255(value);
+    sendRGB(sendRGBprev[0], Number(newValue), sendRGBprev[2], sendRGBprev[3], sendRGBprev[4], sendRGBprev[5])    
+  });
 
 
 
@@ -898,8 +896,8 @@ function handleMQTT(topic, payload) {
 
   // -------- TEMPERATURE --------
   if (topic === "controllerBox/outsideTemp") {
-    outsideTemp = Number(payload);
-    document.getElementById("temp").innerHTML = outsideTemp + "°c";
+    outsideTemp = Number(payload).toFixed(1);
+    document.getElementById("temp").innerHTML = outsideTemp;
   }
 
   // -------- DIGITAL INPUTS --------

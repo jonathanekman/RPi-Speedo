@@ -33,6 +33,8 @@ contextBridge.exposeInMainWorld("api", {
     },    
 
 
+    quitApp: () => ipcRenderer.send("quit-app"),
+
     loadKphJson: () => ipcRenderer.invoke("load-kph-json"),
 
     // ✔ FIXED — correctly forwards the path string

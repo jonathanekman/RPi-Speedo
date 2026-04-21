@@ -203,6 +203,10 @@ ipcMain.handle("load-kph-json", () => {
 });
 
 // UI events
+ipcMain.on("quit-app", () => {
+  app.quit();
+});
+
 ipcMain.on("puttonPress", (event, data) => {
   console.log("[UI EVENT]", data);
 
@@ -390,6 +394,8 @@ function createWindow() {
     height: 1080,
     backgroundColor: "#112",
     show: true,
+    fullscreen: true,
+    frame: false,
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true
@@ -398,7 +404,7 @@ function createWindow() {
 
   mainWindow.removeMenu();
   mainWindow.loadFile(path.join(__dirname, "index.html"));
-  mainWindow.webContents.openDevTools();
+  // mainWindow.webContents.openDevTools();
 
   return mainWindow;
 }

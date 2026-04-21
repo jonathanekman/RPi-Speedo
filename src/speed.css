@@ -250,7 +250,8 @@ body {
 }
 
 #clock { top: 4%; left: 5%; font-size: 7vh;}
-#temp  { top: 3.5%; right: 5%; font-size: 7vh;}
+#temp  { top: 3.5%; right: 2%; font-size: 7vh; width: 15vh; text-align: right;}
+#tempUnit { position: absolute; top: 3.5%; right: 0%; font-size: 7vh; font-family: sevenSegment; color: #8b8b8b; transform: translate(-50%, -50%); z-index: 20;}
 
 .graphProcent {
   top: 48%;
@@ -447,8 +448,8 @@ body {
   flex-direction: row;     /* default, can be omitted */
   gap: 10px;               /* space between buttons */
   position: absolute;      /* position on the page */
-  top: 50vh;
-  left: 60vw;
+  top: 60vh;
+  /* left: 60vw; */
   width: auto;
   z-index: 300;
 }
