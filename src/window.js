@@ -517,41 +517,50 @@ var drawCircle4 = function(color, lineWidth, percent) {
 
 var lowColor = '#bd5c0d'
 var goodColor = '#055180'
+var highColor = '#a83a3a'
 
+
+function channelMax(idx)  { return mqttCalib?.[idx]?.max          ?? 100; }
+function channelLow(idx)  { return mqttCalib?.[idx]?.lowThreshold ?? 15;  }
+function channelHigh(idx) { return mqttCalib?.[idx]?.highThreshold ?? 85; }
+
+function pickGraphColor(idx, value) {
+  if (value < channelLow(idx))  return lowColor;
+  if (value > channelHigh(idx)) return highColor;
+  return goodColor;
+}
+
+function fillFrac(value, max) {
+  return Math.min(Math.max(value / max, 0), 1) * 0.125;
+}
 
 function drawGraph() {
 
-graphColor1 = goodColor
-if (options1.percent < 15)
-  graphColor1 = lowColor
+graph1.clearRect(-options1.size, -options1.size, options1.size * 2, options1.size * 2);
+graph2.clearRect(-options2.size, -options2.size, options2.size * 2, options2.size * 2);
+graph3.clearRect(-options3.size, -options3.size, options3.size * 2, options3.size * 2);
+graph4.clearRect(-options4.size, -options4.size, options4.size * 2, options4.size * 2);
 
-graphColor2 = goodColor
-if (options2.percent < 15)
-  graphColor2 = lowColor
+const graphColor1 = pickGraphColor(0, options1.percent);
+const graphColor2 = pickGraphColor(1, options2.percent);
+const graphColor3 = pickGraphColor(2, options3.percent);
+const graphColor4 = pickGraphColor(3, options4.percent);
 
-graphColor3 = goodColor
-if (options3.percent < 15)
-  graphColor3 = lowColor
-
-graphColor4 = goodColor
-if (options4.percent < 15)
-  graphColor4 = lowColor
-
-drawCircle1('#132a38', options1.lineWidth, 0.875);   //0.25 = quarter circle
+drawCircle1('#132a38', options1.lineWidth, 0.875);
 if (options1.percent > 0) {
-  drawCircle1(graphColor1, options1.lineWidth, 1- (options1.percent *(1/800)) );  
+  drawCircle1(graphColor1, options1.lineWidth, 1 - fillFrac(options1.percent, channelMax(0)));
 }
-drawCircle2('#132a38', options2.lineWidth, 0.125);   
+drawCircle2('#132a38', options2.lineWidth, 0.125);
 if (options2.percent > 0)
-  drawCircle2(graphColor2, options2.lineWidth, options2.percent / 800);
+  drawCircle2(graphColor2, options2.lineWidth, fillFrac(options2.percent, channelMax(1)));
 
-drawCircle3('#132a38', options3.lineWidth, 0.875);   
+drawCircle3('#132a38', options3.lineWidth, 0.875);
 if (options3.percent > 0)
-  drawCircle3(graphColor3, options3.lineWidth,  1- (options3.percent *(1/800)) );
+  drawCircle3(graphColor3, options3.lineWidth, 1 - fillFrac(options3.percent, channelMax(2)));
 
-drawCircle4('#132a38', options4.lineWidth, 0.125);   
+drawCircle4('#132a38', options4.lineWidth, 0.125);
 if (options4.percent > 0)
-  drawCircle4(graphColor4, options4.lineWidth, options4.percent / 800);
+  drawCircle4(graphColor4, options4.lineWidth, fillFrac(options4.percent, channelMax(3)));
 
 
 }
@@ -911,7 +920,9 @@ function handleMQTT(topic, payload) {
   if (topic.startsWith("controllerBox/A")) {
     const idx = Number(topic.slice(-1));
 
-    const value = Number(payload);
+    const raw = Number(payload);
+    mqttRaw[idx] = raw;
+    const value = applyCalib(idx, raw);
 
     switch (idx) {
       case 0: heaterTank = value; options1.percent = value; break;
@@ -921,6 +932,7 @@ function handleMQTT(topic, payload) {
     }
 
     drawGraph();
+    updateLiveCalibDisplay();
   }
 
   // -------- BLINKERS (example) --------
@@ -1076,4 +1088,370 @@ stadjanCam.addEventListener('click', () => {
     stadjanStream = null;
     stadjanCam.srcObject = null;
   }
+});
+
+/* --- settings page toggle --- */
+const settingsBtn = document.getElementById('settingsBtn');
+const settingsPage = document.getElementById('settingsPage');
+const settingsCloseBtn = document.getElementById('settingsCloseBtn');
+
+settingsBtn.addEventListener('click', () => {
+  settingsPage.classList.add('open');
+  updateLiveCalibDisplay();
+});
+
+settingsCloseBtn.addEventListener('click', () => {
+  settingsPage.classList.remove('open');
+});
+
+/* --- MQTT graph input calibration --- */
+const mqttRaw = [0, 0, 0, 0];
+const CALIB_MAX_POINTS = 5;
+const defaultCalib = () => ({
+  points: [
+    { raw: 0,   mapped: 0   },
+    { raw: 100, mapped: 100 },
+  ],
+  max: 100,
+  lowThreshold: 15,
+  highThreshold: 85,
+});
+
+function loadCalib(i) {
+  try {
+    const parsed = JSON.parse(localStorage.getItem('calib' + i));
+    if (parsed && Array.isArray(parsed.points)
+        && parsed.points.length >= 2
+        && parsed.points.length <= CALIB_MAX_POINTS) {
+      const d = defaultCalib();
+      if (!Number.isFinite(parsed.max))           parsed.max           = d.max;
+      if (!Number.isFinite(parsed.lowThreshold))  parsed.lowThreshold  = d.lowThreshold;
+      if (!Number.isFinite(parsed.highThreshold)) parsed.highThreshold = d.highThreshold;
+      return parsed;
+    }
+  } catch {}
+  return defaultCalib();
+}
+
+const mqttCalib = [0, 1, 2, 3].map(loadCalib);
+const calibFnCache = [null, null, null, null];
+
+function activeCalibPoints(idx) {
+  return mqttCalib[idx].points
+    .filter(p => Number.isFinite(p.raw) && Number.isFinite(p.mapped))
+    .sort((a, b) => a.raw - b.raw);
+}
+
+// Solve Ax = b for square A via Gaussian elimination with partial pivoting.
+function solveLinear(A, b) {
+  const n = A.length;
+  const M = A.map((row, i) => [...row, b[i]]);
+  for (let i = 0; i < n; i++) {
+    let maxRow = i;
+    for (let k = i + 1; k < n; k++) {
+      if (Math.abs(M[k][i]) > Math.abs(M[maxRow][i])) maxRow = k;
+    }
+    [M[i], M[maxRow]] = [M[maxRow], M[i]];
+    if (Math.abs(M[i][i]) < 1e-12) return null;
+    for (let k = i + 1; k < n; k++) {
+      const f = M[k][i] / M[i][i];
+      for (let j = i; j <= n; j++) M[k][j] -= f * M[i][j];
+    }
+  }
+  const x = new Array(n);
+  for (let i = n - 1; i >= 0; i--) {
+    let s = M[i][n];
+    for (let j = i + 1; j < n; j++) s -= M[i][j] * x[j];
+    x[i] = s / M[i][i];
+  }
+  return x;
+}
+
+// Least-squares polynomial fit of given degree. Returns coefficients c0 + c1*x + c2*x^2 + ...
+function polyFit(pts, degree) {
+  const m = degree + 1;
+  const A = Array.from({ length: m }, () => new Array(m).fill(0));
+  const b = new Array(m).fill(0);
+  for (const p of pts) {
+    const powers = new Array(2 * m - 1);
+    powers[0] = 1;
+    for (let k = 1; k < powers.length; k++) powers[k] = powers[k - 1] * p.raw;
+    for (let i = 0; i < m; i++) {
+      for (let j = 0; j < m; j++) A[i][j] += powers[i + j];
+      b[i] += powers[i] * p.mapped;
+    }
+  }
+  return solveLinear(A, b);
+}
+
+function evalPoly(coeffs, x) {
+  let r = 0;
+  for (let i = coeffs.length - 1; i >= 0; i--) r = r * x + coeffs[i];
+  return r;
+}
+
+function buildCalibFn(idx) {
+  const pts = activeCalibPoints(idx);
+  if (pts.length === 0) return x => x;
+  if (pts.length === 1) return () => pts[0].mapped;
+  if (pts.length === 2) {
+    const [p0, p1] = pts;
+    if (p0.raw === p1.raw) return () => p0.mapped;
+    const m = (p1.mapped - p0.mapped) / (p1.raw - p0.raw);
+    return x => p0.mapped + (x - p0.raw) * m;
+  }
+  const degree = Math.min(pts.length - 1, 3);
+  const coeffs = polyFit(pts, degree);
+  if (!coeffs) return x => x;
+  return x => evalPoly(coeffs, x);
+}
+
+function getCalibFn(idx) {
+  if (!calibFnCache[idx]) calibFnCache[idx] = buildCalibFn(idx);
+  return calibFnCache[idx];
+}
+
+function invalidateCalibCache(idx) { calibFnCache[idx] = null; }
+
+function applyCalib(idx, raw) {
+  return getCalibFn(idx)(raw);
+}
+
+const mqttInputSelect = document.getElementById('mqttInputSelect');
+const liveRawEl       = document.getElementById('liveRawValue');
+const liveMappedEl    = document.getElementById('liveMappedValue');
+const calibRows       = document.querySelectorAll('.calibRow[data-point]');
+const curveCanvas     = document.getElementById('calibCurve');
+const curveCtx        = curveCanvas.getContext('2d');
+const addPointBtn     = document.getElementById('addPointBtn');
+const rangeMaxEl      = document.getElementById('rangeMax');
+const rangeLowEl      = document.getElementById('rangeLow');
+const rangeHighEl     = document.getElementById('rangeHigh');
+
+function getRowInputs(row) {
+  return {
+    raw:    row.querySelector('.calibRaw'),
+    mapped: row.querySelector('.calibMapped'),
+  };
+}
+
+function updateAddPointBtn(idx) {
+  const count = mqttCalib[idx]?.points.length ?? 0;
+  addPointBtn.disabled = count >= CALIB_MAX_POINTS;
+}
+
+function loadRowsFromCalib(idx) {
+  const c = mqttCalib[idx];
+  const count = c.points.length;
+  calibRows.forEach(row => {
+    const pi = parseInt(row.dataset.point, 10);
+    const { raw, mapped } = getRowInputs(row);
+    if (pi < count) {
+      row.classList.remove('hidden');
+      const p = c.points[pi];
+      raw.value    = Number.isFinite(p.raw)    ? p.raw    : '';
+      mapped.value = Number.isFinite(p.mapped) ? p.mapped : '';
+    } else {
+      row.classList.add('hidden');
+      raw.value = '';
+      mapped.value = '';
+    }
+  });
+  rangeMaxEl.value  = c.max;
+  rangeLowEl.value  = c.lowThreshold;
+  rangeHighEl.value = c.highThreshold;
+  updateAddPointBtn(idx);
+}
+
+function readRowsToCalib(idx) {
+  const points = [];
+  calibRows.forEach(row => {
+    if (row.classList.contains('hidden')) return;
+    const { raw, mapped } = getRowInputs(row);
+    points.push({
+      raw:    raw.value    === '' ? NaN : parseFloat(raw.value),
+      mapped: mapped.value === '' ? NaN : parseFloat(mapped.value),
+    });
+  });
+  const prev = mqttCalib[idx];
+  mqttCalib[idx] = {
+    points,
+    max:           rangeMaxEl.value  === '' ? prev.max          : parseFloat(rangeMaxEl.value),
+    lowThreshold:  rangeLowEl.value  === '' ? prev.lowThreshold : parseFloat(rangeLowEl.value),
+    highThreshold: rangeHighEl.value === '' ? prev.highThreshold: parseFloat(rangeHighEl.value),
+  };
+  invalidateCalibCache(idx);
+  drawGraph();
+}
+
+function drawCalibCurve(idx) {
+  const rect = curveCanvas.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  curveCanvas.width  = rect.width  * dpr;
+  curveCanvas.height = rect.height * dpr;
+  curveCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const w = rect.width, h = rect.height;
+  curveCtx.clearRect(0, 0, w, h);
+
+  if (isNaN(idx)) return;
+
+  const pts = activeCalibPoints(idx);
+  if (pts.length < 2) return;
+
+  const pad = 35;
+  const live = mqttRaw[idx];
+  const liveMapped = applyCalib(idx, live);
+
+  let minX = pts[0].raw,     maxX = pts[pts.length - 1].raw;
+  let minY = Math.min(...pts.map(p => p.mapped));
+  let maxY = Math.max(...pts.map(p => p.mapped));
+  if (Number.isFinite(live))       { minX = Math.min(minX, live); maxX = Math.max(maxX, live); }
+  if (Number.isFinite(liveMapped)) { minY = Math.min(minY, liveMapped); maxY = Math.max(maxY, liveMapped); }
+  if (maxX === minX) maxX = minX + 1;
+  if (maxY === minY) maxY = minY + 1;
+  const rangeX = maxX - minX, rangeY = maxY - minY;
+  minX -= rangeX * 0.05; maxX += rangeX * 0.05;
+  minY -= rangeY * 0.05; maxY += rangeY * 0.05;
+
+  const toX = v => pad + (v - minX) / (maxX - minX) * (w - pad * 1.5);
+  const toY = v => (h - pad) - (v - minY) / (maxY - minY) * (h - pad * 1.5);
+
+  curveCtx.strokeStyle = '#333';
+  curveCtx.lineWidth = 1;
+  curveCtx.beginPath();
+  for (let i = 0; i <= 4; i++) {
+    const y = pad + i * (h - pad * 1.5) / 4;
+    curveCtx.moveTo(pad, y); curveCtx.lineTo(w - pad / 2, y);
+    const x = pad + i * (w - pad * 1.5) / 4;
+    curveCtx.moveTo(x, pad / 2); curveCtx.lineTo(x, h - pad);
+  }
+  curveCtx.stroke();
+
+  curveCtx.strokeStyle = '#666';
+  curveCtx.beginPath();
+  curveCtx.moveTo(pad, pad / 2); curveCtx.lineTo(pad, h - pad); curveCtx.lineTo(w - pad / 2, h - pad);
+  curveCtx.stroke();
+
+  curveCtx.fillStyle = '#888';
+  curveCtx.font = '11px sans-serif';
+  curveCtx.fillText('raw',    w - 30, h - pad + 18);
+  curveCtx.fillText('mapped', 4, pad);
+  curveCtx.fillText(minX.toFixed(1), pad - 4, h - pad + 14);
+  curveCtx.fillText(maxX.toFixed(1), w - pad, h - pad + 14);
+  curveCtx.fillText(maxY.toFixed(1), 2, pad / 2 + 10);
+  curveCtx.fillText(minY.toFixed(1), 2, h - pad);
+
+  const fn = getCalibFn(idx);
+  const samples = 120;
+  const stepX = (maxX - minX) / samples;
+  curveCtx.strokeStyle = '#5898eb';
+  curveCtx.lineWidth = 2;
+  curveCtx.beginPath();
+  for (let i = 0; i <= samples; i++) {
+    const x = minX + i * stepX;
+    const y = fn(x);
+    const px = toX(x), py = toY(y);
+    if (i === 0) curveCtx.moveTo(px, py); else curveCtx.lineTo(px, py);
+  }
+  curveCtx.stroke();
+
+  curveCtx.fillStyle = '#5898eb';
+  pts.forEach(p => {
+    curveCtx.beginPath();
+    curveCtx.arc(toX(p.raw), toY(p.mapped), 4, 0, Math.PI * 2);
+    curveCtx.fill();
+  });
+
+  if (Number.isFinite(live) && Number.isFinite(liveMapped)) {
+    const x = toX(live), y = toY(liveMapped);
+    curveCtx.strokeStyle = 'rgba(173, 255, 47, 0.4)';
+    curveCtx.lineWidth = 1;
+    curveCtx.beginPath();
+    curveCtx.moveTo(x, h - pad); curveCtx.lineTo(x, y);
+    curveCtx.moveTo(pad, y);     curveCtx.lineTo(x, y);
+    curveCtx.stroke();
+    curveCtx.fillStyle = 'greenyellow';
+    curveCtx.beginPath();
+    curveCtx.arc(x, y, 5, 0, Math.PI * 2);
+    curveCtx.fill();
+  }
+}
+
+function updateLiveCalibDisplay() {
+  if (!settingsPage.classList.contains('open')) return;
+  const idx = parseInt(mqttInputSelect.value, 10);
+  if (isNaN(idx)) {
+    liveRawEl.textContent = '—';
+    liveMappedEl.textContent = '—';
+    drawCalibCurve(NaN);
+    return;
+  }
+  const raw = mqttRaw[idx];
+  liveRawEl.textContent    = Number.isFinite(raw) ? raw.toFixed(2) : '—';
+  liveMappedEl.textContent = applyCalib(idx, raw).toFixed(2);
+  drawCalibCurve(idx);
+}
+
+mqttInputSelect.addEventListener('change', () => {
+  const idx = parseInt(mqttInputSelect.value, 10);
+  if (isNaN(idx)) return;
+  loadRowsFromCalib(idx);
+  updateLiveCalibDisplay();
+});
+
+calibRows.forEach(row => {
+  const { raw, mapped } = getRowInputs(row);
+  [raw, mapped].forEach(inp => inp.addEventListener('input', () => {
+    const idx = parseInt(mqttInputSelect.value, 10);
+    if (isNaN(idx)) return;
+    readRowsToCalib(idx);
+    updateLiveCalibDisplay();
+  }));
+  row.querySelector('.useLiveBtn').addEventListener('click', () => {
+    const idx = parseInt(mqttInputSelect.value, 10);
+    if (isNaN(idx)) return;
+    raw.value = mqttRaw[idx];
+    readRowsToCalib(idx);
+    updateLiveCalibDisplay();
+  });
+  const removeBtn = row.querySelector('.removePointBtn');
+  if (removeBtn) {
+    removeBtn.addEventListener('click', () => {
+      const idx = parseInt(mqttInputSelect.value, 10);
+      if (isNaN(idx)) return;
+      const pi = parseInt(row.dataset.point, 10);
+      if (pi >= mqttCalib[idx].points.length) return;
+      mqttCalib[idx].points.splice(pi, 1);
+      invalidateCalibCache(idx);
+      loadRowsFromCalib(idx);
+      updateLiveCalibDisplay();
+    });
+  }
+});
+
+addPointBtn.addEventListener('click', () => {
+  const idx = parseInt(mqttInputSelect.value, 10);
+  if (isNaN(idx)) return;
+  if (mqttCalib[idx].points.length >= CALIB_MAX_POINTS) return;
+  mqttCalib[idx].points.push({ raw: NaN, mapped: NaN });
+  invalidateCalibCache(idx);
+  loadRowsFromCalib(idx);
+  updateLiveCalibDisplay();
+});
+
+[rangeMaxEl, rangeLowEl, rangeHighEl].forEach(inp => {
+  inp.addEventListener('input', () => {
+    const idx = parseInt(mqttInputSelect.value, 10);
+    if (isNaN(idx)) return;
+    readRowsToCalib(idx);
+    updateLiveCalibDisplay();
+  });
+});
+
+document.getElementById('saveCalibBtn').addEventListener('click', () => {
+  const idx = parseInt(mqttInputSelect.value, 10);
+  if (isNaN(idx)) return;
+  readRowsToCalib(idx);
+  localStorage.setItem('calib' + idx, JSON.stringify(mqttCalib[idx]));
+  updateLiveCalibDisplay();
 });

@@ -535,3 +535,188 @@ body {
   opacity: 0;
 }
 
+/* ======================================================
+   FULL SCREEN SETTINGS PAGE
+   ====================================================== */
+#settingsPage {
+  position: fixed;
+  inset: 0;
+  background: #1a1a1a;
+  z-index: 1000;
+  display: none;
+  flex-direction: column;
+  color: #fff;
+}
+
+#settingsPage.open {
+  display: flex;
+}
+
+#settingsCloseBtn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 50, 50, 0.8);
+  color: white;
+  font-size: 20px;
+  font-weight: bold;
+  cursor: pointer;
+  z-index: 1001;
+}
+
+.settingsTitle {
+  font-size: xx-large;
+  color: aliceblue;
+  padding: 30px;
+}
+
+.settingsContent {
+  flex: 1;
+  padding: 20px 40px;
+  overflow-y: auto;
+}
+
+.calibSection {
+  max-width: 1100px;
+  background: #222;
+  padding: 20px 25px;
+  border-radius: 10px;
+}
+
+.calibLayout {
+  display: flex;
+  gap: 30px;
+  align-items: flex-start;
+  margin-top: 10px;
+}
+
+.calibForm {
+  flex: 0 0 auto;
+}
+
+.calibCurveBox {
+  flex: 1;
+  min-width: 300px;
+  min-height: 350px;
+  background: #111;
+  border-radius: 8px;
+  padding: 10px;
+}
+
+#calibCurve {
+  width: 100%;
+  height: 350px;
+  display: block;
+}
+
+.rangeSettings {
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 1px solid #333;
+}
+
+.rangeSettings .calibRow label {
+  min-width: 130px;
+}
+
+.calibSection h2 {
+  color: aliceblue;
+  font-size: x-large;
+  margin-bottom: 15px;
+}
+
+.calibRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 0;
+  flex-wrap: wrap;
+}
+
+.calibRow label {
+  min-width: 80px;
+  color: #ccc;
+}
+
+.calibRow select,
+.calibRow input {
+  background: #333;
+  color: #fff;
+  border: 1px solid #555;
+  border-radius: 5px;
+  padding: 8px 10px;
+  font-size: 16px;
+}
+
+.calibRow input[type="number"] {
+  width: 110px;
+}
+
+.calibRow .arrow {
+  color: #888;
+  font-size: 20px;
+}
+
+.calibLive {
+  background: #111;
+  border-radius: 6px;
+  padding: 10px 15px;
+  margin: 15px 0;
+  color: greenyellow;
+  font-family: sevenSegment;
+  font-size: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.useLiveBtn,
+#saveCalibBtn,
+#addPointBtn,
+.removePointBtn {
+  background: #2d6fa8;
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  padding: 8px 14px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+#addPointBtn {
+  background: #3a8bd8;
+  margin-top: 8px;
+}
+
+#addPointBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.removePointBtn {
+  background: #a83a3a;
+  padding: 6px 10px;
+}
+
+#saveCalibBtn {
+  background: #22c782;
+  font-size: 16px;
+  padding: 10px 25px;
+  margin-top: 10px;
+}
+
+.useLiveBtn:hover,
+#saveCalibBtn:hover,
+#addPointBtn:hover:not(:disabled),
+.removePointBtn:hover {
+  filter: brightness(1.2);
+}
+
+.calibRow.hidden {
+  display: none;
+}
+
