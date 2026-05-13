@@ -445,11 +445,10 @@ let cameraActive = false;
 function setCameraActive(active) {
   if (cameraActive === active) return;
   cameraActive = active;
-  console.log(`[CAM] setCameraActive(${active}) mainWindow=${!!mainWindow}`);
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('cameraActive', active);
   }
-  if (!active) { latestFrame = null; frameCount = 0; }
+  if (!active) latestFrame = null;
 }
 
 function pushFrame(buf) {
@@ -459,14 +458,9 @@ function pushFrame(buf) {
   }
 }
 
-let frameCount = 0;
 ipcMain.on('cameraFrame', (_e, buf) => {
   if (!buf) return;
   latestFrame = Buffer.isBuffer(buf) ? buf : Buffer.from(buf);
-  frameCount++;
-  if (frameCount === 1 || frameCount % 50 === 0) {
-    console.log(`[CAM] frame #${frameCount} bytes=${latestFrame.length} clients=${mjpegClients.size}`);
-  }
   pushFrame(latestFrame);
 });
 
@@ -506,8 +500,11 @@ const HELLO_HTML = `<!DOCTYPE html>
   #camBtn svg{width:1.2rem;height:1.2rem;fill:currentColor}
   #camView{position:fixed;inset:0;width:100vw;height:100vh;height:100dvh;background:#000;display:none;align-items:center;justify-content:center;z-index:9999;cursor:pointer;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
   #camView.open{display:flex}
-  #camView img{max-width:100%;max-height:100%;width:auto;height:auto;display:block;object-fit:contain}
-  html.camOpen,body.camOpen{overflow:hidden;overscroll-behavior:none}
+  #camView video{position:absolute;inset:0;width:100%!important;height:100%!important;max-width:none;max-height:none;display:block;object-fit:contain;background:#000}
+  #camSrc{display:none}
+  #camCanvas{display:none}
+  html.camOpen,body.camOpen{overscroll-behavior:none;background:#000!important}
+  body.camOpen{min-height:calc(100dvh + 1px)}
 </style>
 </head>
 <body>
@@ -518,7 +515,11 @@ const HELLO_HTML = `<!DOCTYPE html>
   <label><input type="checkbox" data-target="right"><span class="name">Right</span><span class="state" id="state-right">0%</span></label>
 </div>
 <button id="camBtn"><svg viewBox="0 0 24 24"><path d="M9 4l-2 2H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-3l-2-2H9zm3 5a5 5 0 1 1 0 10 5 5 0 0 1 0-10zm0 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></svg>Camera</button>
-<div id="camView"><img id="camImg" alt=""></div>
+<div id="camView">
+  <img id="camSrc" alt="">
+  <canvas id="camCanvas"></canvas>
+  <video id="camVid" autoplay playsinline muted></video>
+</div>
 <script>
   document.querySelectorAll('input[type=checkbox][data-target]').forEach(cb=>{
     cb.addEventListener('change',()=>{
@@ -542,28 +543,60 @@ const HELLO_HTML = `<!DOCTYPE html>
   connectEvents();
   const camBtn=document.getElementById('camBtn');
   const camView=document.getElementById('camView');
-  const camImg=document.getElementById('camImg');
+  const camSrc=document.getElementById('camSrc');
+  const camCanvas=document.getElementById('camCanvas');
+  const camVid=document.getElementById('camVid');
+  let camRaf=null;
+  let camStream=null;
+  function drawLoop(){
+    if(camCanvas.width&&camSrc.complete&&camSrc.naturalWidth){
+      try{camCanvas.getContext('2d').drawImage(camSrc,0,0,camCanvas.width,camCanvas.height);}catch{}
+    }
+    camRaf=requestAnimationFrame(drawLoop);
+  }
+  function tryFullscreen(){
+    if(camVid.webkitEnterFullscreen){try{camVid.webkitEnterFullscreen();return;}catch{}}
+    const el=camVid.requestFullscreen?camVid:camView;
+    const req=el.requestFullscreen||el.webkitRequestFullscreen||el.webkitRequestFullScreen;
+    if(req){try{Promise.resolve(req.call(el)).catch(()=>{});}catch{}}
+  }
+  function onFirstFrame(){
+    if(camCanvas.width)return;
+    camCanvas.width=camSrc.naturalWidth||640;
+    camCanvas.height=camSrc.naturalHeight||480;
+    drawLoop();
+    if(camCanvas.captureStream){
+      camStream=camCanvas.captureStream(15);
+      camVid.srcObject=camStream;
+      const enter=()=>{tryFullscreen();camVid.removeEventListener('loadedmetadata',enter);};
+      if(camVid.readyState>=1)enter();else camVid.addEventListener('loadedmetadata',enter);
+    }else{
+      tryFullscreen();
+    }
+  }
   function openCam(){
-    camImg.src='/stream.mjpg?t='+Date.now();
     camView.classList.add('open');
     document.documentElement.classList.add('camOpen');
     document.body.classList.add('camOpen');
-    const el=camView;
-    const req=el.requestFullscreen||el.webkitRequestFullscreen||el.webkitRequestFullScreen;
-    if(req){try{Promise.resolve(req.call(el)).catch(()=>{});}catch{}}
+    camSrc.addEventListener('load',onFirstFrame,{once:true});
+    camSrc.src='/stream.mjpg?t='+Date.now();
     if(screen.orientation&&screen.orientation.lock){screen.orientation.lock('landscape').catch(()=>{});}
-    setTimeout(()=>window.scrollTo(0,1),50);
   }
   function closeCam(){
     camView.classList.remove('open');
     document.documentElement.classList.remove('camOpen');
     document.body.classList.remove('camOpen');
-    camImg.removeAttribute('src');
+    if(camRaf){cancelAnimationFrame(camRaf);camRaf=null;}
+    if(camStream){camStream.getTracks().forEach(t=>t.stop());camStream=null;}
+    camVid.srcObject=null;
+    camSrc.removeAttribute('src');
+    camCanvas.width=0;camCanvas.height=0;
     const exit=document.exitFullscreen||document.webkitExitFullscreen;
     if(exit&&document.fullscreenElement){try{exit.call(document);}catch{}}
   }
   camBtn.addEventListener('click',openCam);
   camView.addEventListener('click',closeCam);
+  camVid.addEventListener('webkitendfullscreen',closeCam);
   document.addEventListener('fullscreenchange',()=>{if(!document.fullscreenElement&&camView.classList.contains('open'))closeCam();});
 </script>
 </body>

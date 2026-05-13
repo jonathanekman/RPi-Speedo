@@ -864,7 +864,7 @@ function scaleTo255(value) {
     window.api.onRoofQr(setRoofQr);
   }
 
-  // ---------------- Webcam → web UI streaming ----------------
+  // ---------------- Webcam → web UI streaming (MJPEG) ----------------
   let camStream = null;
   let camVideo = null;
   let camCanvas = null;
@@ -873,17 +873,12 @@ function scaleTo255(value) {
 
   async function startStreamCam() {
     if (camStream) return;
-    console.log('[CAM] startStreamCam: requesting getUserMedia');
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      console.error('[CAM] mediaDevices API not available');
-      return;
-    }
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
     try {
       camStream = await navigator.mediaDevices.getUserMedia({
-        video: { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 15 } },
+        video: { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 15 } },
         audio: false
       });
-      console.log('[CAM] getUserMedia OK, tracks:', camStream.getVideoTracks().map(t => t.label));
     } catch (err) {
       console.error('[CAM] getUserMedia failed:', err.name, err.message);
       camStream = null;
@@ -902,8 +897,7 @@ function scaleTo255(value) {
       camVideo.onloadeddata = resolve;
       setTimeout(resolve, 3000);
     });
-    try { await camVideo.play(); } catch (err) { console.error('[CAM] play() failed:', err); }
-    console.log(`[CAM] video ready ${camVideo.videoWidth}x${camVideo.videoHeight}`);
+    try { await camVideo.play(); } catch {}
 
     camCanvas = document.createElement('canvas');
     camCanvas.width = camVideo.videoWidth || 640;
@@ -915,8 +909,12 @@ function scaleTo255(value) {
         camCanvas.width = camVideo.videoWidth;
         camCanvas.height = camVideo.videoHeight;
       }
-      try { ctx.drawImage(camVideo, 0, 0, camCanvas.width, camCanvas.height); }
-      catch (err) { console.error('[CAM] drawImage failed:', err); return; }
+      try {
+        ctx.save();
+        ctx.setTransform(-1, 0, 0, 1, camCanvas.width, 0);
+        ctx.drawImage(camVideo, 0, 0, camCanvas.width, camCanvas.height);
+        ctx.restore();
+      } catch { return; }
       camBusy = true;
       camCanvas.toBlob(blob => {
         camBusy = false;
@@ -927,7 +925,6 @@ function scaleTo255(value) {
   }
 
   function stopStreamCam() {
-    console.log('[CAM] stopStreamCam');
     if (camTimer) { clearInterval(camTimer); camTimer = null; }
     if (camStream) { camStream.getTracks().forEach(t => t.stop()); camStream = null; }
     if (camVideo) { camVideo.srcObject = null; camVideo.remove(); camVideo = null; }
@@ -936,13 +933,7 @@ function scaleTo255(value) {
   }
 
   if (window.api?.onCameraActive) {
-    console.log('[CAM] onCameraActive listener installed');
-    window.api.onCameraActive(active => {
-      console.log('[CAM] onCameraActive:', active);
-      active ? startStreamCam() : stopStreamCam();
-    });
-  } else {
-    console.warn('[CAM] window.api.onCameraActive not exposed');
+    window.api.onCameraActive(active => { active ? startStreamCam() : stopStreamCam(); });
   }
 
 
