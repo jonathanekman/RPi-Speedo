@@ -39,7 +39,7 @@ function startGPS() {
     );
 
     if (!gpsDevice) {
-      console.warn('[GPS] Device not found (VID:067B PID:2303). Retrying in 5s...');
+      // console.warn('[GPS] Device not found (VID:067B PID:2303). Retrying in 5s...');
       sendGPSStatus(false);
       setTimeout(startGPS, 5000);
       return;

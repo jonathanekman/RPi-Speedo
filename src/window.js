@@ -104,9 +104,8 @@ const mqttState = {};
 function addAlarm(id, message) {
   // Only add if it doesn't already exist
   const exists = alarms.some(alarm => alarm.id === id);
-  if (!exists) {
-    alarms.unshift({ id, message });  //adds alarm first in array each time
-  }
+  if (exists) return;
+  alarms.unshift({ id, message });  //adds alarm first in array each time
   updateAlarms();
   // console.log("AddedAlarm");
 }
@@ -114,15 +113,17 @@ function addAlarm(id, message) {
 
 function removeAlarm(id) {
   const index = alarms.findIndex(alarm => alarm.id === id);
-  if (index !== -1) {
-    alarms.splice(index, 1);
-  }
+  if (index === -1) return;
+  alarms.splice(index, 1);
   updateAlarms();
   // console.log("removeAlarm");
 }
 
 
 
+
+let alarmCloseTimer = null;
+let alarmFadeTimer = null;
 
 function updateAlarms() {
 
@@ -133,6 +134,9 @@ function updateAlarms() {
 
   const infoWindow1 = info.querySelector(".info-window");
   const infoWindow2 = info2.querySelector(".info-window");
+
+  clearTimeout(alarmCloseTimer);
+  clearTimeout(alarmFadeTimer);
 
   if (alarms.length > 0) {
 
@@ -153,7 +157,7 @@ function updateAlarms() {
     infoWindow2.classList.add("open");
 
     // AUTO CLOSE AFTER 5s
-    setTimeout(() => {
+    alarmCloseTimer = setTimeout(() => {
       infoWindow1.classList.remove("open");
       infoWindow2.classList.remove("open");
     }, 5000);
@@ -164,7 +168,7 @@ function updateAlarms() {
     info.style.visibility = "hidden";
     info2.style.visibility = "hidden";
 
-    setTimeout(() => {
+    alarmFadeTimer = setTimeout(() => {
       info.style.opacity = "0";
       info2.style.opacity = "0";
     }, 5000);
