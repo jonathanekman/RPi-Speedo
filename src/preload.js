@@ -65,5 +65,31 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.on("gpsStatus", handler);
       return () => ipcRenderer.removeListener("gpsStatus", handler);
     },
+
+    // Roof slider commands from the local web UI
+    onRoofSlider: (cb) => {
+      const handler = (_e, data) => cb(data);
+      ipcRenderer.on("roofSlider", handler);
+      return () => ipcRenderer.removeListener("roofSlider", handler);
+    },
+
+    // QR code (data URL) pointing at the local roof-control website
+    getRoofQr: () => ipcRenderer.invoke("getRoofQr"),
+    onRoofQr: (cb) => {
+      const handler = (_e, dataUrl) => cb(dataUrl);
+      ipcRenderer.on("roofQr", handler);
+      return () => ipcRenderer.removeListener("roofQr", handler);
+    },
+
+    // Report local slider changes back to the web UI
+    reportRoofSlider: (sliderId, value) => ipcRenderer.send("roofSliderUpdate", { sliderId, value }),
+
+    // Webcam streaming for the web UI
+    onCameraActive: (cb) => {
+      const handler = (_e, active) => cb(active);
+      ipcRenderer.on("cameraActive", handler);
+      return () => ipcRenderer.removeListener("cameraActive", handler);
+    },
+    sendCameraFrame: (buf) => ipcRenderer.send("cameraFrame", buf),
 });
 

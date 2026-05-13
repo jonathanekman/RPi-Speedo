@@ -1,7 +1,7 @@
 // ===========================================================
 // Modern Electron Main Process
 // ===========================================================
-const { app, BrowserWindow, ipcMain } = require("electron");
+const { app, BrowserWindow, ipcMain, session } = require("electron");
 // const SerialPort = require("serialport");
 const { SerialPort } = require('serialport');
 // const { list } = SerialPort;
@@ -17,8 +17,11 @@ const aedes = require('aedes')();
 const net = require('net');
 const ws = require('ws');
 const http = require('http');
+const os = require('os');
+const QRCode = require('qrcode');
 
 let mainWindow = null;
+let roofQrDataUrl = null;
 const latestMQTT = new Map();
 let mqttFlushScheduled = false;
 
@@ -421,6 +424,253 @@ function createWindow() {
 
 const MQTT_PORT = 1883;
 const WS_PORT = 8884;
+const HELLO_PORT = 8080;
+
+const ROOF_TARGETS = { left: 'leftLightSlider', center: 'centerLightSlider', right: 'rightLightSlider' };
+const SLIDER_TO_TARGET = { leftLightSlider: 'left', centerLightSlider: 'center', rightLightSlider: 'right' };
+const roofValues = { left: 0, center: 0, right: 0 };
+const sseClients = new Set();
+
+function broadcastRoof(target, value) {
+  const payload = `event: roof\ndata: ${JSON.stringify({ target, value })}\n\n`;
+  for (const c of sseClients) {
+    try { c.write(payload); } catch {}
+  }
+}
+
+const mjpegClients = new Set();
+let latestFrame = null;
+let cameraActive = false;
+
+function setCameraActive(active) {
+  if (cameraActive === active) return;
+  cameraActive = active;
+  console.log(`[CAM] setCameraActive(${active}) mainWindow=${!!mainWindow}`);
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('cameraActive', active);
+  }
+  if (!active) { latestFrame = null; frameCount = 0; }
+}
+
+function pushFrame(buf) {
+  const header = `--frame\r\nContent-Type: image/jpeg\r\nContent-Length: ${buf.length}\r\n\r\n`;
+  for (const c of mjpegClients) {
+    try { c.write(header); c.write(buf); c.write('\r\n'); } catch {}
+  }
+}
+
+let frameCount = 0;
+ipcMain.on('cameraFrame', (_e, buf) => {
+  if (!buf) return;
+  latestFrame = Buffer.isBuffer(buf) ? buf : Buffer.from(buf);
+  frameCount++;
+  if (frameCount === 1 || frameCount % 50 === 0) {
+    console.log(`[CAM] frame #${frameCount} bytes=${latestFrame.length} clients=${mjpegClients.size}`);
+  }
+  pushFrame(latestFrame);
+});
+
+ipcMain.on('roofSliderUpdate', (_e, { sliderId, value }) => {
+  const target = SLIDER_TO_TARGET[sliderId];
+  if (!target) return;
+  const v = Math.max(0, Math.min(100, Number(value)));
+  if (Number.isNaN(v) || roofValues[target] === v) return;
+  roofValues[target] = v;
+  broadcastRoof(target, v);
+});
+
+const HELLO_HTML = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#000000">
+<title>Roof Lights</title>
+<style>
+  *,*::before,*::after{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:#fff;color:#000;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
+  body{min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:2.5rem 1.25rem}
+  h1{margin:0 0 2rem;font-size:1.1rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase}
+  .list{width:100%;max-width:420px;border-top:1px solid #000}
+  label{display:flex;align-items:center;gap:1rem;padding:1.25rem .25rem;border-bottom:1px solid #000;cursor:pointer;user-select:none;font-size:1rem}
+  input[type=checkbox]{appearance:none;-webkit-appearance:none;width:1.4rem;height:1.4rem;border:1px solid #000;background:#fff;margin:0;cursor:pointer;flex-shrink:0;position:relative}
+  input[type=checkbox]:checked{background:#000}
+  input[type=checkbox]:checked::after{content:"";position:absolute;left:.38rem;top:.1rem;width:.4rem;height:.8rem;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+  .name{flex:1}
+  .state{font-variant-numeric:tabular-nums;opacity:.5;font-size:.9rem}
+  #camBtn{width:100%;max-width:420px;margin-top:1.5rem;padding:1rem;background:#fff;color:#000;border:1px solid #000;font:inherit;font-size:1rem;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:.6rem}
+  #camBtn:active{background:#000;color:#fff}
+  #camBtn svg{width:1.2rem;height:1.2rem;fill:currentColor}
+  #camView{position:fixed;inset:0;width:100vw;height:100vh;height:100dvh;background:#000;display:none;align-items:center;justify-content:center;z-index:9999;cursor:pointer;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+  #camView.open{display:flex}
+  #camView img{max-width:100%;max-height:100%;width:auto;height:auto;display:block;object-fit:contain}
+  html.camOpen,body.camOpen{overflow:hidden;overscroll-behavior:none}
+</style>
+</head>
+<body>
+<h1>Roof Lights</h1>
+<div class="list">
+  <label><input type="checkbox" data-target="left"><span class="name">Left</span><span class="state" id="state-left">0%</span></label>
+  <label><input type="checkbox" data-target="center"><span class="name">Center</span><span class="state" id="state-center">0%</span></label>
+  <label><input type="checkbox" data-target="right"><span class="name">Right</span><span class="state" id="state-right">0%</span></label>
+</div>
+<button id="camBtn"><svg viewBox="0 0 24 24"><path d="M9 4l-2 2H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-3l-2-2H9zm3 5a5 5 0 1 1 0 10 5 5 0 0 1 0-10zm0 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/></svg>Camera</button>
+<div id="camView"><img id="camImg" alt=""></div>
+<script>
+  document.querySelectorAll('input[type=checkbox][data-target]').forEach(cb=>{
+    cb.addEventListener('change',()=>{
+      const target=cb.dataset.target;
+      const value=cb.checked?100:0;
+      document.getElementById('state-'+target).textContent=value+'%';
+      fetch('/roof',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({target,value})}).catch(()=>{});
+    });
+  });
+  function applyRoof(target,value){
+    const cb=document.querySelector('input[data-target="'+target+'"]');
+    const stateEl=document.getElementById('state-'+target);
+    if(cb)cb.checked=value>0;
+    if(stateEl)stateEl.textContent=value+'%';
+  }
+  function connectEvents(){
+    const es=new EventSource('/events');
+    es.addEventListener('roof',e=>{try{const{target,value}=JSON.parse(e.data);applyRoof(target,value);}catch{}});
+    es.onerror=()=>{es.close();setTimeout(connectEvents,2000);};
+  }
+  connectEvents();
+  const camBtn=document.getElementById('camBtn');
+  const camView=document.getElementById('camView');
+  const camImg=document.getElementById('camImg');
+  function openCam(){
+    camImg.src='/stream.mjpg?t='+Date.now();
+    camView.classList.add('open');
+    document.documentElement.classList.add('camOpen');
+    document.body.classList.add('camOpen');
+    const el=camView;
+    const req=el.requestFullscreen||el.webkitRequestFullscreen||el.webkitRequestFullScreen;
+    if(req){try{Promise.resolve(req.call(el)).catch(()=>{});}catch{}}
+    if(screen.orientation&&screen.orientation.lock){screen.orientation.lock('landscape').catch(()=>{});}
+    setTimeout(()=>window.scrollTo(0,1),50);
+  }
+  function closeCam(){
+    camView.classList.remove('open');
+    document.documentElement.classList.remove('camOpen');
+    document.body.classList.remove('camOpen');
+    camImg.removeAttribute('src');
+    const exit=document.exitFullscreen||document.webkitExitFullscreen;
+    if(exit&&document.fullscreenElement){try{exit.call(document);}catch{}}
+  }
+  camBtn.addEventListener('click',openCam);
+  camView.addEventListener('click',closeCam);
+  document.addEventListener('fullscreenchange',()=>{if(!document.fullscreenElement&&camView.classList.contains('open'))closeCam();});
+</script>
+</body>
+</html>`;
+
+function getLanIp() {
+  const ifaces = os.networkInterfaces();
+  for (const name of Object.keys(ifaces)) {
+    for (const iface of ifaces[name] || []) {
+      if (iface.family === 'IPv4' && !iface.internal) return iface.address;
+    }
+  }
+  return '127.0.0.1';
+}
+
+let lastRoofIp = null;
+
+async function refreshRoofQr() {
+  const ip = getLanIp();
+  if (ip === lastRoofIp && roofQrDataUrl) return;
+  lastRoofIp = ip;
+  const url = `http://${ip}:${HELLO_PORT}`;
+  try {
+    roofQrDataUrl = await QRCode.toDataURL(url, { margin: 1, width: 240, color: { dark: '#000', light: '#fff' } });
+    console.log('[QR] Roof control URL:', url);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('roofQr', roofQrDataUrl);
+    }
+  } catch (err) {
+    console.error('[QR] Failed to generate:', err.message);
+  }
+}
+
+ipcMain.handle('getRoofQr', () => roofQrDataUrl);
+
+function startHelloServer() {
+  const server = http.createServer((req, res) => {
+    console.log(`[HTTP] ${req.method} ${req.url} from ${req.socket.remoteAddress}`);
+    const pathOnly = (req.url || '').split('?')[0];
+    if (req.method === 'GET' && pathOnly === '/stream.mjpg') {
+      res.writeHead(200, {
+        'Content-Type': 'multipart/x-mixed-replace; boundary=frame',
+        'Cache-Control': 'no-cache, private',
+        'Pragma': 'no-cache',
+        'Connection': 'close'
+      });
+      mjpegClients.add(res);
+      setCameraActive(true);
+      if (latestFrame) {
+        try {
+          res.write(`--frame\r\nContent-Type: image/jpeg\r\nContent-Length: ${latestFrame.length}\r\n\r\n`);
+          res.write(latestFrame);
+          res.write('\r\n');
+        } catch {}
+      }
+      const cleanup = () => {
+        mjpegClients.delete(res);
+        if (mjpegClients.size === 0) setCameraActive(false);
+      };
+      req.on('close', cleanup);
+      req.on('error', cleanup);
+      return;
+    }
+    if (req.method === 'GET' && pathOnly === '/events') {
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'X-Accel-Buffering': 'no'
+      });
+      res.write(': connected\n\n');
+      sseClients.add(res);
+      for (const [t, v] of Object.entries(roofValues)) {
+        res.write(`event: roof\ndata: ${JSON.stringify({ target: t, value: v })}\n\n`);
+      }
+      const ping = setInterval(() => { try { res.write(': ping\n\n'); } catch {} }, 15000);
+      req.on('close', () => { clearInterval(ping); sseClients.delete(res); });
+      return;
+    }
+    if (req.method === 'POST' && pathOnly === '/roof') {
+      let body = '';
+      req.on('data', chunk => { body += chunk; if (body.length > 1024) req.destroy(); });
+      req.on('end', () => {
+        try {
+          const { target, value } = JSON.parse(body);
+          const sliderId = ROOF_TARGETS[target];
+          const v = Math.max(0, Math.min(100, Number(value)));
+          if (!sliderId || Number.isNaN(v)) { res.writeHead(400); return res.end(); }
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('roofSlider', { sliderId, value: v });
+          }
+          res.writeHead(204); res.end();
+        } catch { res.writeHead(400); res.end(); }
+      });
+      return;
+    }
+    res.writeHead(200, {
+      'Content-Type': 'text/html; charset=utf-8',
+      'Cache-Control': 'no-store, no-cache, must-revalidate',
+      'Pragma': 'no-cache'
+    });
+    res.end(HELLO_HTML);
+  });
+  server.listen(HELLO_PORT, '0.0.0.0', () => {
+    console.log(`Hello server listening on http://localhost:${HELLO_PORT}`);
+  });
+}
 
 function startMQTTBroker() {
   // TCP server
@@ -551,7 +801,14 @@ aedes.on('publish', (packet, client) => {
 // Electron ready
 app.whenReady().then(() => {
   console.log('Electron ready — starting MQTT broker');
+  session.defaultSession.setPermissionRequestHandler((_wc, permission, callback) => {
+    if (permission === 'media') return callback(true);
+    callback(false);
+  });
   startMQTTBroker();
+  startHelloServer();
+  refreshRoofQr();
+  setInterval(refreshRoofQr, 5000);
   startGPS();
   createWindow();
   // const win = new BrowserWindow({

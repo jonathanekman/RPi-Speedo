@@ -820,7 +820,8 @@ function scaleTo255(value) {
     const value  = slider.value;
     document.getElementById("leftLight").textContent = value;
     const newValue = scaleTo255(value);
-    sendRGB(Number(newValue), sendRGBprev[1], sendRGBprev[2], sendRGBprev[3], sendRGBprev[4], sendRGBprev[5])  
+    sendRGB(Number(newValue), sendRGBprev[1], sendRGBprev[2], sendRGBprev[3], sendRGBprev[4], sendRGBprev[5])
+    window.api?.reportRoofSlider?.("leftLightSlider", Number(value));
   });
 
   document.getElementById("centerLightSlider").addEventListener("input", () => {
@@ -829,6 +830,7 @@ function scaleTo255(value) {
     document.getElementById("centerLight").textContent = value;
     const newValue = scaleTo255(value);
     sendRGB(sendRGBprev[0], sendRGBprev[1], Number(newValue), sendRGBprev[3], sendRGBprev[4], sendRGBprev[5])
+    window.api?.reportRoofSlider?.("centerLightSlider", Number(value));
   });
 
   document.getElementById("rightLightSlider").addEventListener("input", () => {
@@ -836,10 +838,112 @@ function scaleTo255(value) {
     const value  = slider.value;
     document.getElementById("rightLight").textContent = value;
     const newValue = scaleTo255(value);
-    sendRGB(sendRGBprev[0], Number(newValue), sendRGBprev[2], sendRGBprev[3], sendRGBprev[4], sendRGBprev[5])    
+    sendRGB(sendRGBprev[0], Number(newValue), sendRGBprev[2], sendRGBprev[3], sendRGBprev[4], sendRGBprev[5])
+    window.api?.reportRoofSlider?.("rightLightSlider", Number(value));
   });
 
+  if (window.api?.onRoofSlider) {
+    window.api.onRoofSlider(({ sliderId, value }) => {
+      const slider = document.getElementById(sliderId);
+      if (!slider) return;
+      slider.value = value;
+      slider.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+  }
 
+  function setRoofQr(dataUrl) {
+    const img = document.getElementById('roofQr');
+    if (!img || !dataUrl) return;
+    img.src = dataUrl;
+    img.style.display = 'block';
+  }
+  if (window.api?.getRoofQr) {
+    window.api.getRoofQr().then(setRoofQr);
+  }
+  if (window.api?.onRoofQr) {
+    window.api.onRoofQr(setRoofQr);
+  }
+
+  // ---------------- Webcam → web UI streaming ----------------
+  let camStream = null;
+  let camVideo = null;
+  let camCanvas = null;
+  let camTimer = null;
+  let camBusy = false;
+
+  async function startStreamCam() {
+    if (camStream) return;
+    console.log('[CAM] startStreamCam: requesting getUserMedia');
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      console.error('[CAM] mediaDevices API not available');
+      return;
+    }
+    try {
+      camStream = await navigator.mediaDevices.getUserMedia({
+        video: { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { ideal: 15 } },
+        audio: false
+      });
+      console.log('[CAM] getUserMedia OK, tracks:', camStream.getVideoTracks().map(t => t.label));
+    } catch (err) {
+      console.error('[CAM] getUserMedia failed:', err.name, err.message);
+      camStream = null;
+      return;
+    }
+    camVideo = document.createElement('video');
+    camVideo.autoplay = true;
+    camVideo.playsInline = true;
+    camVideo.muted = true;
+    camVideo.srcObject = camStream;
+    camVideo.style.cssText = 'position:absolute;left:-9999px;width:1px;height:1px';
+    document.body.appendChild(camVideo);
+
+    await new Promise(resolve => {
+      if (camVideo.readyState >= 2 && camVideo.videoWidth > 0) return resolve();
+      camVideo.onloadeddata = resolve;
+      setTimeout(resolve, 3000);
+    });
+    try { await camVideo.play(); } catch (err) { console.error('[CAM] play() failed:', err); }
+    console.log(`[CAM] video ready ${camVideo.videoWidth}x${camVideo.videoHeight}`);
+
+    camCanvas = document.createElement('canvas');
+    camCanvas.width = camVideo.videoWidth || 640;
+    camCanvas.height = camVideo.videoHeight || 480;
+    const ctx = camCanvas.getContext('2d');
+    camTimer = setInterval(() => {
+      if (camBusy || !camVideo || camVideo.readyState < 2 || !camVideo.videoWidth) return;
+      if (camCanvas.width !== camVideo.videoWidth) {
+        camCanvas.width = camVideo.videoWidth;
+        camCanvas.height = camVideo.videoHeight;
+      }
+      try { ctx.drawImage(camVideo, 0, 0, camCanvas.width, camCanvas.height); }
+      catch (err) { console.error('[CAM] drawImage failed:', err); return; }
+      camBusy = true;
+      camCanvas.toBlob(blob => {
+        camBusy = false;
+        if (!blob) return;
+        blob.arrayBuffer().then(buf => window.api?.sendCameraFrame?.(buf));
+      }, 'image/jpeg', 0.7);
+    }, 100);
+  }
+
+  function stopStreamCam() {
+    console.log('[CAM] stopStreamCam');
+    if (camTimer) { clearInterval(camTimer); camTimer = null; }
+    if (camStream) { camStream.getTracks().forEach(t => t.stop()); camStream = null; }
+    if (camVideo) { camVideo.srcObject = null; camVideo.remove(); camVideo = null; }
+    camCanvas = null;
+    camBusy = false;
+  }
+
+  if (window.api?.onCameraActive) {
+    console.log('[CAM] onCameraActive listener installed');
+    window.api.onCameraActive(active => {
+      console.log('[CAM] onCameraActive:', active);
+      active ? startStreamCam() : stopStreamCam();
+    });
+  } else {
+    console.warn('[CAM] window.api.onCameraActive not exposed');
+  }
 
 
 
