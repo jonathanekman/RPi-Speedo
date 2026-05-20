@@ -1,9 +1,36 @@
 const speedCanvas = document.getElementById('speedbox-score');
 const speedCtx = speedCanvas.getContext('2d');
+const speedbox = document.querySelector('.speedbox');
 // speedCanvas.width = speedCanvas.height = Math.round(window.innerHeight * 0.8);
 
+// Speedometer arc geometry — keep tick numbers and canvas arc in sync
+const SPEED_START_ANGLE = 3 * Math.PI / 4;
+const SPEED_FULL_SWEEP  = 3 * Math.PI / 2;
+const SPEED_MAX = 140;
+const SPEED_TICK_STEP = 10;
+const TICK_RADIUS_FRAC = 0.33;  // fraction of speedbox width — bump to push numbers further out (mountain edge is ~0.375)
+
+function placeSpeedTicks() {
+  const fart = document.querySelector('.fart');
+  if (!fart) return;
+  fart.innerHTML = '';
+  const r = speedbox.clientWidth * TICK_RADIUS_FRAC;
+  for (let v = 0; v <= SPEED_MAX; v += SPEED_TICK_STEP) {
+    const a = SPEED_START_ANGLE + (v / SPEED_MAX) * SPEED_FULL_SWEEP;
+    const dx = r * Math.cos(a);
+    const dy = r * Math.sin(a);
+    const el = document.createElement('p');
+    el.className = 'numbers';
+    el.textContent = String(v);
+    el.style.transform = `translate(-50%, -50%) translate(${dx}px, ${dy}px)`;
+    fart.appendChild(el);
+  }
+}
+placeSpeedTicks();
+window.addEventListener('resize', placeSpeedTicks);
+
 function drawSpeedometer(speed) {
-  speedCanvas.width = speedCanvas.height = Math.round(window.innerHeight * 0.9);
+  speedCanvas.width = speedCanvas.height = Math.round(speedbox.clientWidth * 0.9);
     const w = speedCanvas.width;
     const cx = w / 2, cy = w / 2;
     const r = cx * 0.88;
@@ -395,38 +422,41 @@ temp = false;
 
 /*Graphs*/
 var gr1 = document.getElementById('graph1'); // get canvas
-var gr2 = document.getElementById('graph2'); 
-var gr3 = document.getElementById('graph3'); 
-var gr4 = document.getElementById('graph4'); 
+var gr2 = document.getElementById('graph2');
+var gr3 = document.getElementById('graph3');
+var gr4 = document.getElementById('graph4');
 
+// Tune the four corner graphs from here
+const CHART_SIZE_FACTOR = 1.20;  // multiplier on screen.height — bigger = arcs sit further from center
+const CHART_LINE_WIDTH  = 38;    // arc thickness in px
 
 var options1 = {
     percent: heaterTank, // gr1.getAttribute('data-percent') /*|| 25*/,
     // use screen.width (screen.width - 5)
-    size: gr1.getAttribute('data-size') || (screen.height*1.05),
-    lineWidth: gr1.getAttribute('data-line') || 20,
+    size: gr1.getAttribute('data-size') || (screen.height * CHART_SIZE_FACTOR),
+    lineWidth: gr1.getAttribute('data-line') || CHART_LINE_WIDTH,
     rotate: gr1.getAttribute('data-rotate') || 90  /*||45 to rotate 45 degres*/
 }
 
 var options2 = {
   percent:  camperVolt, //gr2.getAttribute('data-percent'),
-  size: gr2.getAttribute('data-size') || (screen.height*1.05),
-  lineWidth: gr2.getAttribute('data-line') || 20,
-  rotate: gr2.getAttribute('data-rotate') || 95  
+  size: gr2.getAttribute('data-size') || (screen.height * CHART_SIZE_FACTOR),
+  lineWidth: gr2.getAttribute('data-line') || CHART_LINE_WIDTH,
+  rotate: gr2.getAttribute('data-rotate') || 95
 }
 
 var options3 = {
   percent:  engineVolt, //gr3.getAttribute('data-percent'),
-  size: gr3.getAttribute('data-size') || (screen.height*1.05),
-  lineWidth: gr3.getAttribute('data-line') || 20,
-  rotate: gr3.getAttribute('data-rotate') || -95 
+  size: gr3.getAttribute('data-size') || (screen.height * CHART_SIZE_FACTOR),
+  lineWidth: gr3.getAttribute('data-line') || CHART_LINE_WIDTH,
+  rotate: gr3.getAttribute('data-rotate') || -95
 }
 
 var options4 = {
   percent:  coolanTemp, //gr4.getAttribute('data-percent'),
-  size: gr4.getAttribute('data-size') || (screen.height*1.05),
-  lineWidth: gr4.getAttribute('data-line') || 20,
-  rotate: gr4.getAttribute('data-rotate') || -90 
+  size: gr4.getAttribute('data-size') || (screen.height * CHART_SIZE_FACTOR),
+  lineWidth: gr4.getAttribute('data-line') || CHART_LINE_WIDTH,
+  rotate: gr4.getAttribute('data-rotate') || -90
 }
 
 
@@ -591,18 +621,22 @@ function setContainerPosition(offsetX) {
 }
 
 function setPage(index) {
-  currentPage = Math.max(0, Math.min(totalPages - 1, index));
+  const newPage = Math.max(0, Math.min(totalPages - 1, index));
+  const pageChanged = newPage !== currentPage;
+  currentPage = newPage;
   currentTranslate = -currentPage * window.innerWidth;
   container.style.transition = "transform 0.4s ease";
   setContainerPosition(currentTranslate);
-  if (currentPage == 0)
-  {
-    activateCam();
-          console.log('activateCam')
-  }
-  else {
-    stopCam();
-          console.log('stopCam')
+  // Only toggle the camera when actually switching pages — otherwise re-attaching
+  // the stream resets the kamera scroll position on every touch.
+  if (pageChanged) {
+    if (currentPage == 0) {
+      activateCam();
+      console.log('activateCam')
+    } else {
+      stopCam();
+      console.log('stopCam')
+    }
   }
 }
 
@@ -615,19 +649,23 @@ function touchStart(x) {
 function touchMove(x) {
   if (!isDragging) return;
   const delta = x - startX;
-  setContainerPosition(currentTranslate + delta);
+  // Clamp so you can't drag past the first or last page (no bouncy void at the edges).
+  const minOffset = -(totalPages - 1) * window.innerWidth;
+  const maxOffset = 0;
+  const offset = Math.max(minOffset, Math.min(maxOffset, currentTranslate + delta));
+  setContainerPosition(offset);
 }
 
 function touchEnd(x) {
   if (!isDragging) return;
   isDragging = false;
   const delta = x - startX;
+  let nextPage = currentPage;
   if (Math.abs(delta) > window.innerWidth / 4) {
-    // swipe threshold
-    if (delta < 0) currentPage++; // swipe left → next
-    else currentPage--; // swipe right → previous
+    // swipe threshold — swipe left (delta<0) → next page, right → previous
+    nextPage = delta < 0 ? currentPage + 1 : currentPage - 1;
   }
-  setPage(currentPage);
+  setPage(nextPage);
 }
 
 /* --- Touch Events --- */
@@ -1028,6 +1066,21 @@ function handleMQTT(topic, payload) {
       case 1: camperVolt = value; options2.percent = value; break;
       case 2: engineVolt = value; options3.percent = value; break;
       case 3: coolanTemp = value; options4.percent = value; break;
+    }
+
+    // Reveal this channel's percent + name labels on first data
+    // 0=Heater tank%, 1=Camper volt%, 2=Engine volt%, 3=Coolant temp
+    const labelIds = [
+      ['g1', 'dieselTank'],
+      ['g2', 'livingVoltage'],
+      ['g3', 'engineVoltage'],
+      ['g4', 'coolantTemp'],
+    ][idx];
+    if (labelIds) {
+      labelIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.visibility = 'visible';
+      });
     }
 
     drawGraph();

@@ -9,6 +9,10 @@
   padding: 0;
 }
 
+:root {
+  --dial-size: 125vh;
+}
+
 html,
 body {
   width: 100vw;
@@ -16,6 +20,9 @@ body {
   overflow: hidden;
   background: #000;
   font-family: 'Oswald', sans-serif;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 @font-face {
@@ -55,15 +62,31 @@ body {
   inset: 0;
   z-index: 35;
   /* visibility: hidden; */
-  pointer-events: none;
   width: 100%;
+  background: #000;           /* black behind the video so the gray page never shows */
+  overflow-y: auto;
+  touch-action: pan-y;        /* vertical scroll wins, horizontal swipes still trigger page change */
+  overscroll-behavior: none;  /* no bounce / scroll-chain past the stream */
+  scrollbar-width: none;      /* Firefox: hide bar */
 }
 
-#kamera video,
-#kamera canvas {
+#kamera::-webkit-scrollbar {  /* Chromium/Electron: hide bar */
+  display: none;
+}
+
+#kamera video {
   width: 100%;
-  height: 100%;
-  object-fit: cover;
+  height: auto;          /* natural aspect — taller than viewport on 4:3 cameras */
+  display: block;
+}
+
+#kamera canvas {
+  /* Overlay on top of the video — out of flow so it doesn't add scroll height */
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  pointer-events: none;
 }
 
 /* ======================================================
@@ -73,20 +96,20 @@ body {
   position: absolute;
   inset: 50% auto auto 50%;
   transform: translate(-50%, -50%);
-  width: 100vh;
-  height: 100vh;
+  width: var(--dial-size);
+  height: var(--dial-size);
 
   display: flex;
   justify-content: center;
   align-items: center;
 
-  background: radial-gradient(greenyellow 30%, #000 70%);
+  background: radial-gradient(greenyellow 5%, #000 70%);
 }
 
 #background {
   position: relative;
-  width: 80vh;
-  height: 80vh;
+  width: calc(var(--dial-size) * 0.80);
+  height: calc(var(--dial-size) * 0.80);
   border-radius: 50%;
   z-index: 30;
 }
@@ -96,8 +119,8 @@ body {
    ====================================================== */
 .background {
   position: absolute;
-  width: 75vh;
-  height: 75vh;
+  width: calc(var(--dial-size) * 0.75);
+  height: calc(var(--dial-size) * 0.75);
   border-radius: 50%;
   transform: translate(-50%, -50%);
   left: 50%;
@@ -107,8 +130,8 @@ body {
 
 .background_video {
   position: absolute;
-  width: 75vh;
-  height: 75vh;
+  width: calc(var(--dial-size) * 0.75);
+  height: calc(var(--dial-size) * 0.75);
   border-radius: 50%;
   transform: translate(-50%, -50%) scale(-1,1);
   left: 50%;
@@ -123,21 +146,26 @@ body {
 
 .fart {
   position: absolute;
-  top: 70%;
-  width: 25vh;
-  height: 25vh;
+  top: 50%;
+  left: 50%;
+  width: var(--dial-size);
+  height: var(--dial-size);
+  transform: translate(-50%, -50%);
   font-family: sevenSegment;
   font-size: 35px;
   color: #fff;
-  text-align: right;
+  pointer-events: none;
   z-index: 40;
 }
 
 .numbers {
   position: absolute;
+  top: 50%;
+  left: 50%;
   font-family: sevenSegment;
   color: #fff;
   z-index: 50;
+  /* JS sets transform: translate(-50%,-50%) translate(dx, dy) per tick */
 }
 
 /* ======================================================
@@ -145,8 +173,8 @@ body {
    ====================================================== */
 .cirkles {
   position: absolute;
-  width: 10vh;
-  height: 10vh;
+  width: calc(var(--dial-size) * 0.10);
+  height: calc(var(--dial-size) * 0.10);
   left: 50%;
   bottom: 10%;
   transform: translate( -50%, -50%);
@@ -263,6 +291,12 @@ body {
 #livingVoltage { top: 85%; left: 70%; }
 #coolantTemp   { top: 15%; left: 30%; }
 #dieselTank    { top: 15%; left: 70%; }
+
+/* Hidden until the first MQTT update for that channel — see handleMQTT */
+#g1, #g2, #g3, #g4,
+#engineVoltage, #livingVoltage, #coolantTemp, #dieselTank {
+  visibility: hidden;
+}
 
 /* ======================================================
    CIRCULAR GRAPHS
