@@ -85,7 +85,7 @@ let stream;
 function activateCam() {
 stopCam()
 if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-  navigator.mediaDevices.getUserMedia({ video: true })
+  navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 960 }, height: { ideal: 720 } } })
     .then((s) => {
       stream = s;               // save the stream in a variable
       video.srcObject = stream;
@@ -103,7 +103,65 @@ function stopCam () {
 }
 
 
-const camButton = document.getElementById('camToggle')
+const camButton = document.getElementById('camToggle');
+
+/* --- Camera pan buttons: tap to jump, hold to pan slowly --- */
+(function setupKamPanButtons() {
+  const kamera = document.getElementById('kamera');
+  const upBtn   = document.getElementById('kamPanUp');
+  const downBtn = document.getElementById('kamPanDown');
+  if (!kamera || !upBtn || !downBtn) return;
+
+  const HOLD_DELAY = 200;   // ms before a press becomes a hold
+  const JUMP_STEP  = 160;   // px to scroll on a quick tap
+  const PAN_SPEED  = 3;     // px per frame while held
+
+  function attach(btn, direction) {
+    let holdTimer = null;
+    let panFrame  = null;
+
+    function startPan() {
+      const step = () => {
+        kamera.scrollTop += direction * PAN_SPEED;
+        panFrame = requestAnimationFrame(step);
+      };
+      step();
+    }
+    function stop() {
+      if (panFrame !== null) {
+        cancelAnimationFrame(panFrame);
+        panFrame = null;
+      }
+    }
+    function onPress(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      holdTimer = setTimeout(() => {
+        holdTimer = null;
+        startPan();
+      }, HOLD_DELAY);
+    }
+    function onRelease(e) {
+      if (e) e.stopPropagation();
+      if (holdTimer !== null) {
+        clearTimeout(holdTimer);
+        holdTimer = null;
+        kamera.scrollBy({ top: direction * JUMP_STEP, behavior: 'smooth' });
+      }
+      stop();
+    }
+
+    btn.addEventListener('touchstart',  onPress,   { passive: false });
+    btn.addEventListener('touchend',    onRelease, { passive: false });
+    btn.addEventListener('touchcancel', onRelease, { passive: false });
+    btn.addEventListener('mousedown',   onPress);
+    btn.addEventListener('mouseup',     onRelease);
+    btn.addEventListener('mouseleave',  onRelease);
+  }
+
+  attach(upBtn,   -1);
+  attach(downBtn, +1);
+})();
 
 
 
@@ -670,15 +728,15 @@ function touchEnd(x) {
 
 /* --- Touch Events --- */
 container.addEventListener("touchstart", e => touchStart(e.touches[0].clientX));
-container.addEventListener("touchmove", e => touchMove(e.touches[0].clientX));
-container.addEventListener("touchend", e => touchEnd(e.changedTouches[0].clientX));
+container.addEventListener("touchmove",  e => touchMove(e.touches[0].clientX));
+container.addEventListener("touchend",   e => touchEnd(e.changedTouches[0].clientX));
 
 /* --- Mouse Events (for testing on PC) --- */
 container.addEventListener("mousedown", e => touchStart(e.clientX));
 container.addEventListener("mousemove", e => {
   if (isDragging) touchMove(e.clientX);
 });
-container.addEventListener("mouseup", e => touchEnd(e.clientX));
+container.addEventListener("mouseup",    e => touchEnd(e.clientX));
 container.addEventListener("mouseleave", e => {
   if (isDragging) touchEnd(e.clientX);
 });
@@ -1193,10 +1251,6 @@ window.api.onGpsData((gps) => {
     drawSpeedometer(speed);
   }
 
-  if (gps.time) {
-    document.getElementById("clock").innerHTML = gps.time.substring(0, 5);
-  }
-
   if (gps.altitude !== null) {
     const now = Date.now();
     altHistory.push({ time: now, altitude: gps.altitude });
@@ -1226,7 +1280,7 @@ const stadjanHit = document.getElementById('stadjanHit');
 stadjanHit.addEventListener('click', () => {
   stadjanHit.style.display = 'none';
   stadjanCam.style.display = 'block';
-  navigator.mediaDevices.getUserMedia({ video: true }).then(s => {
+  navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 960 }, height: { ideal: 720 } } }).then(s => {
     stadjanStream = s;
     stadjanCam.srcObject = s;
   });

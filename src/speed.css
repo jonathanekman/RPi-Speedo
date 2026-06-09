@@ -37,6 +37,9 @@ body {
   display: flex;
   width: 300vw;
   height: 100vh;
+  /* Start on the middle (speedo) page so the camera page isn't briefly
+     visible at startup before window.load fires the JS setPage(1). */
+  transform: translateX(-100vw);
   transition: transform 0.4s ease;
   will-change: transform;
 }
@@ -78,6 +81,37 @@ body {
   width: 100%;
   height: auto;          /* natural aspect — taller than viewport on 4:3 cameras */
   display: block;
+}
+
+/* Pan buttons (top & bottom of the camera page) — tap to jump, hold to pan */
+.kamPanBtn {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 50;
+  width: 96px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.kamPanUp   { top: 16px; }
+.kamPanDown { bottom: 16px; }
+
+.kamPanBtn svg {
+  width: 100%;
+  height: 100%;
+}
+
+.kamPanBtn polyline {
+  fill: none;
+  stroke: #888;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 #kamera canvas {
