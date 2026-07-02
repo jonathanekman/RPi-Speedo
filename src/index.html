@@ -39,6 +39,9 @@
         </div>
       </div>
 
+      <!-- CENTER COLUMN: page 2 (speedo) on top, page 4 below (vertical swipe) -->
+      <div class="vColumn" id="vColumn">
+
       <!-- PAGE 2:  speedometer -->
   <div class="page">
 
@@ -101,23 +104,21 @@
         </div>
 
         <div class="chart" id="graph1" data-percent="10">
-          <div class="graphProcent" id="g1" style="left:93%">1%</div>
+          <div id="dieselTank">Heater tank</div>
+          <div class="graphProcent" id="g1" style="top:41%;left:106%">1%</div>
         </div>
         <div class="chart" id="graph2" data-percent="20">
-          <div class="graphProcent" id="g2" style="top:56%;left:93%">2%</div>
+          <div id="livingVoltage">Camper Volt</div>
+          <div class="graphProcent" id="g2" style="top:69%;left:106%">2%</div>
         </div>
         <div class="chart" id="graph3" data-percent="30">
-          <div class="graphProcent" id="g3" style="top:56%">3%</div>
+          <div id="engineVoltage">Engine Volt</div>
+          <div class="graphProcent" id="g3" style="top:69%;left:-6%">3%</div>
         </div>
         <div class="chart" id="graph4" data-percent="40">
-          <div class="graphProcent" id="g4">4%</div>
+          <div id="coolantTemp">Coolant temp</div>
+          <div class="graphProcent" id="g4" style="top:41%;left:-6%">4%</div>
         </div>
-
-
-        <div id="engineVoltage">Engine Volt%</div>
-        <div id="livingVoltage">Camper Volt%</div>
-        <div id="coolantTemp">Coolant temp°</div>
-        <div id="dieselTank">Heater tank%</div>
 
 
 
@@ -129,15 +130,23 @@
   </div>
 </div>
 
-<div class="altitudegraph">
-  <canvas id="altitudeCanvas"></canvas>
-  <div id="altitudeLabel"></div>
-</div>
-
 
 
 
   </div>  <!--End of page 2-->
+
+      <!-- PAGE 4: below page 2, reached by swiping down on the main page -->
+      <div class="page" id="page4">
+        <div class="page4Content">
+          <div class="graphSelect" id="graphSelect">
+            <button id="graphSelectBtn" type="button">Select graphs ▾</button>
+            <div class="graphSelectPanel hidden" id="graphSelectPanel"></div>
+          </div>
+          <div class="graphStack" id="graphStack"></div>
+        </div>
+      </div>
+
+      </div>  <!-- End of vColumn -->
 
       <!-- PAGE 3: Example settings/info page -->
       <div class="page" style="position: relative;">
@@ -334,18 +343,51 @@
 
         <div class="calibCurveBox">
           <canvas id="calibCurve"></canvas>
-          <div class="rangeSettings">
-            <div class="calibRow">
-              <label>Max value:</label>
-              <input type="number" id="rangeMax" step="any">
+          <div class="calibSideSettings">
+            <div class="rangeSettings">
+              <div class="calibRow">
+                <label>Name:</label>
+                <input type="text" id="dispName" placeholder="display name">
+              </div>
+              <div class="calibRow">
+                <label>Min value:</label>
+                <input type="number" id="rangeMin" step="any">
+              </div>
+              <div class="calibRow">
+                <label>Max value:</label>
+                <input type="number" id="rangeMax" step="any">
+              </div>
+              <div class="calibRow">
+                <label>Low → normal:</label>
+                <input type="number" id="rangeLow" step="any">
+              </div>
+              <div class="calibRow">
+                <label>Normal → high:</label>
+                <input type="number" id="rangeHigh" step="any">
+              </div>
             </div>
-            <div class="calibRow">
-              <label>Low → normal:</label>
-              <input type="number" id="rangeLow" step="any">
-            </div>
-            <div class="calibRow">
-              <label>Normal → high:</label>
-              <input type="number" id="rangeHigh" step="any">
+
+            <div class="displaySettings">
+              <div class="calibRow">
+                <label>Decimals:</label>
+                <input type="number" id="dispDecimals" min="0" max="4" step="1">
+              </div>
+              <div class="calibRow">
+                <label>Unit / suffix:</label>
+                <input type="text" id="dispUnit" placeholder="%, V, °…">
+              </div>
+              <div class="calibRow">
+                <label>Low color:</label>
+                <input type="color" id="dispLowColor">
+              </div>
+              <div class="calibRow">
+                <label>Normal color:</label>
+                <input type="color" id="dispNormalColor">
+              </div>
+              <div class="calibRow">
+                <label>High color:</label>
+                <input type="color" id="dispHighColor">
+              </div>
             </div>
           </div>
         </div>

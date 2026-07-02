@@ -310,10 +310,10 @@ async function update(){
     
     document.getElementById("clock").innerHTML = hours + ':' + minutes;// + ':' + seconds;
     
-    document.getElementById("g1").innerHTML = heaterTank + '%';
-    document.getElementById("g2").innerHTML = camperVolt + '%';
-    document.getElementById("g3").innerHTML = engineVolt + '%';
-    document.getElementById("g4").innerHTML = coolanTemp + '%';
+    document.getElementById("g1").innerHTML = formatChannel(0, heaterTank);
+    document.getElementById("g2").innerHTML = formatChannel(1, camperVolt);
+    document.getElementById("g3").innerHTML = formatChannel(2, engineVolt);
+    document.getElementById("g4").innerHTML = formatChannel(3, coolanTemp);
     
     // document.getElementById("temp").innerHTML = outsideTemp + '°';
     
@@ -612,18 +612,40 @@ var goodColor = '#055180'
 var highColor = '#a83a3a'
 
 
+function channelMin(idx)  { return mqttCalib?.[idx]?.min          ?? 0;   }
 function channelMax(idx)  { return mqttCalib?.[idx]?.max          ?? 100; }
 function channelLow(idx)  { return mqttCalib?.[idx]?.lowThreshold ?? 15;  }
 function channelHigh(idx) { return mqttCalib?.[idx]?.highThreshold ?? 85; }
 
-function pickGraphColor(idx, value) {
-  if (value < channelLow(idx))  return lowColor;
-  if (value > channelHigh(idx)) return highColor;
-  return goodColor;
+// Update a channel's display name on the page label and the settings dropdown.
+function applyChannelName(idx) {
+  const name = mqttCalib?.[idx]?.name ?? '';
+  const labelEl = document.getElementById(NAME_LABEL_IDS[idx]);
+  if (labelEl) labelEl.textContent = name;
+  const opt = mqttInputSelect?.querySelector(`option[value="${idx}"]`);
+  if (opt) opt.textContent = `A${idx} — ${name}`;
 }
 
-function fillFrac(value, max) {
-  return Math.min(Math.max(value / max, 0), 1) * 0.125;
+function pickGraphColor(idx, value) {
+  const c = mqttCalib?.[idx];
+  if (value < channelLow(idx))  return c?.lowColor    ?? lowColor;
+  if (value > channelHigh(idx)) return c?.highColor   ?? highColor;
+  return c?.normalColor ?? goodColor;
+}
+
+// Format a channel's mapped value with its configured decimals + unit suffix.
+function formatChannel(idx, value) {
+  const c = mqttCalib?.[idx];
+  const decimals = Number.isFinite(c?.decimals) ? c.decimals : 0;
+  const unit = c?.unit ?? '';
+  const num = Number.isFinite(Number(value)) ? Number(value).toFixed(decimals) : value;
+  return num + unit;
+}
+
+function fillFrac(value, min, max) {
+  const span = max - min;
+  const frac = span === 0 ? 0 : (value - min) / span;
+  return Math.min(Math.max(frac, 0), 1) * 0.125;
 }
 
 function drawGraph() {
@@ -639,20 +661,20 @@ const graphColor3 = pickGraphColor(2, options3.percent);
 const graphColor4 = pickGraphColor(3, options4.percent);
 
 drawCircle1('#132a38', options1.lineWidth, 0.875);
-if (options1.percent > 0) {
-  drawCircle1(graphColor1, options1.lineWidth, 1 - fillFrac(options1.percent, channelMax(0)));
+if (options1.percent > channelMin(0)) {
+  drawCircle1(graphColor1, options1.lineWidth, 1 - fillFrac(options1.percent, channelMin(0), channelMax(0)));
 }
 drawCircle2('#132a38', options2.lineWidth, 0.125);
-if (options2.percent > 0)
-  drawCircle2(graphColor2, options2.lineWidth, fillFrac(options2.percent, channelMax(1)));
+if (options2.percent > channelMin(1))
+  drawCircle2(graphColor2, options2.lineWidth, fillFrac(options2.percent, channelMin(1), channelMax(1)));
 
 drawCircle3('#132a38', options3.lineWidth, 0.875);
-if (options3.percent > 0)
-  drawCircle3(graphColor3, options3.lineWidth, 1 - fillFrac(options3.percent, channelMax(2)));
+if (options3.percent > channelMin(2))
+  drawCircle3(graphColor3, options3.lineWidth, 1 - fillFrac(options3.percent, channelMin(2), channelMax(2)));
 
 drawCircle4('#132a38', options4.lineWidth, 0.125);
-if (options4.percent > 0)
-  drawCircle4(graphColor4, options4.lineWidth, fillFrac(options4.percent, channelMax(3)));
+if (options4.percent > channelMin(3))
+  drawCircle4(graphColor4, options4.lineWidth, fillFrac(options4.percent, channelMin(3), channelMax(3)));
 
 
 }
@@ -667,15 +689,26 @@ if (options4.percent > 0)
 
 
 const container = document.getElementById("container");
-const totalPages = document.querySelectorAll(".page").length;
+const vColumn = document.getElementById("vColumn");
+// Horizontal slots are the container's direct children (camera, center column, settings).
+const totalPages = container.children.length;
+const CENTER_PAGE = 1;          // index of the center column (vertical-swipe enabled)
+const totalVPages = vColumn ? vColumn.querySelectorAll(".page").length : 1; // main + page 4
 
 let currentPage = 1; // middle page (0 = left, 1 = center, 2 = right)
+let currentVPage = 0; // 0 = main/speedo, 1 = page 4 (below)
 let startX = 0;
+let startY = 0;
+let axis = null;     // 'x' or 'y' — locked once a drag direction is established
 let currentTranslate = -currentPage * window.innerWidth;
 let isDragging = false;
 
 function setContainerPosition(offsetX) {
   container.style.transform = `translateX(${offsetX}px)`;
+}
+
+function setVColumnPosition(offsetY) {
+  if (vColumn) vColumn.style.transform = `translateY(${offsetY}px)`;
 }
 
 function setPage(index) {
@@ -698,47 +731,83 @@ function setPage(index) {
   }
 }
 
-function touchStart(x) {
+function setVPage(index) {
+  currentVPage = Math.max(0, Math.min(totalVPages - 1, index));
+  if (vColumn) vColumn.style.transition = "transform 0.4s ease";
+  setVColumnPosition(-currentVPage * window.innerHeight);
+  if (currentVPage === 1 && typeof drawPage4Graphs === 'function') drawPage4Graphs();
+}
+
+function touchStart(x, y) {
   isDragging = true;
   startX = x;
+  startY = y;
+  axis = null;
   container.style.transition = "none";
+  if (vColumn) vColumn.style.transition = "none";
 }
 
-function touchMove(x) {
+function touchMove(x, y) {
   if (!isDragging) return;
-  const delta = x - startX;
-  // Clamp so you can't drag past the first or last page (no bouncy void at the edges).
-  const minOffset = -(totalPages - 1) * window.innerWidth;
-  const maxOffset = 0;
-  const offset = Math.max(minOffset, Math.min(maxOffset, currentTranslate + delta));
-  setContainerPosition(offset);
+  const dx = x - startX;
+  const dy = y - startY;
+  // Lock the gesture to one axis once it clears a small dead zone. Vertical
+  // navigation is only available on the center page.
+  if (!axis) {
+    if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+    axis = (currentPage === CENTER_PAGE && Math.abs(dy) > Math.abs(dx)) ? 'y' : 'x';
+  }
+  if (axis === 'x') {
+    // Clamp so you can't drag past the first or last page (no bouncy void at the edges).
+    const minOffset = -(totalPages - 1) * window.innerWidth;
+    const maxOffset = 0;
+    const offset = Math.max(minOffset, Math.min(maxOffset, currentTranslate + dx));
+    setContainerPosition(offset);
+  } else {
+    const minOffset = -(totalVPages - 1) * window.innerHeight;
+    const maxOffset = 0;
+    const base = -currentVPage * window.innerHeight;
+    const offset = Math.max(minOffset, Math.min(maxOffset, base + dy));
+    setVColumnPosition(offset);
+  }
 }
 
-function touchEnd(x) {
+function touchEnd(x, y) {
   if (!isDragging) return;
   isDragging = false;
-  const delta = x - startX;
-  let nextPage = currentPage;
-  if (Math.abs(delta) > window.innerWidth / 4) {
-    // swipe threshold — swipe left (delta<0) → next page, right → previous
-    nextPage = delta < 0 ? currentPage + 1 : currentPage - 1;
+  if (axis === 'y') {
+    const dy = y - startY;
+    let nextV = currentVPage;
+    if (Math.abs(dy) > window.innerHeight / 4) {
+      // swipe up (dy<0) → page below, down → page above
+      nextV = dy < 0 ? currentVPage + 1 : currentVPage - 1;
+    }
+    setVPage(nextV);
+  } else {
+    const dx = x - startX;
+    let nextPage = currentPage;
+    if (Math.abs(dx) > window.innerWidth / 4) {
+      // swipe left (dx<0) → next page, right → previous
+      nextPage = dx < 0 ? currentPage + 1 : currentPage - 1;
+    }
+    setPage(nextPage);
   }
-  setPage(nextPage);
+  axis = null;
 }
 
 /* --- Touch Events --- */
-container.addEventListener("touchstart", e => touchStart(e.touches[0].clientX));
-container.addEventListener("touchmove",  e => touchMove(e.touches[0].clientX));
-container.addEventListener("touchend",   e => touchEnd(e.changedTouches[0].clientX));
+container.addEventListener("touchstart", e => touchStart(e.touches[0].clientX, e.touches[0].clientY));
+container.addEventListener("touchmove",  e => touchMove(e.touches[0].clientX, e.touches[0].clientY));
+container.addEventListener("touchend",   e => touchEnd(e.changedTouches[0].clientX, e.changedTouches[0].clientY));
 
 /* --- Mouse Events (for testing on PC) --- */
-container.addEventListener("mousedown", e => touchStart(e.clientX));
+container.addEventListener("mousedown", e => touchStart(e.clientX, e.clientY));
 container.addEventListener("mousemove", e => {
-  if (isDragging) touchMove(e.clientX);
+  if (isDragging) touchMove(e.clientX, e.clientY);
 });
-container.addEventListener("mouseup",    e => touchEnd(e.clientX));
+container.addEventListener("mouseup",    e => touchEnd(e.clientX, e.clientY));
 container.addEventListener("mouseleave", e => {
-  if (isDragging) touchEnd(e.clientX);
+  if (isDragging) touchEnd(e.clientX, e.clientY);
 });
 
 /* --- Initialize on middle page --- */
@@ -1102,6 +1171,7 @@ function handleMQTT(topic, payload) {
   if (topic === "controllerBox/outsideTemp") {
     outsideTemp = Number(payload).toFixed(1);
     document.getElementById("temp").innerHTML = outsideTemp;
+    recordSignal('temp', payload);
   }
 
   // -------- DIGITAL INPUTS --------
@@ -1125,6 +1195,7 @@ function handleMQTT(topic, payload) {
       case 2: engineVolt = value; options3.percent = value; break;
       case 3: coolanTemp = value; options4.percent = value; break;
     }
+    recordSignal('a' + idx, value);
 
     // Reveal this channel's percent + name labels on first data
     // 0=Heater tank%, 1=Camper volt%, 2=Engine volt%, 3=Coolant temp
@@ -1176,65 +1247,6 @@ window.api.onMqttBatch((batch) => {
 // ===========================================================
 // GPS DATA — live speed, time, altitude, satellites
 // ===========================================================
-const altCanvas = document.getElementById('altitudeCanvas');
-const altCtx = altCanvas.getContext('2d');
-const altLabel = document.getElementById('altitudeLabel');
-const altHistory = []; // { time, altitude }
-const ALT_WINDOW = 5 * 60 * 1000; // 5 minutes in ms
-
-function drawAltitudeGraph() {
-  const rect = altCanvas.parentElement.getBoundingClientRect();
-  altCanvas.width = rect.width * devicePixelRatio;
-  altCanvas.height = rect.height * devicePixelRatio;
-  altCtx.scale(devicePixelRatio, devicePixelRatio);
-  const w = rect.width;
-  const h = rect.height;
-
-  altCtx.clearRect(0, 0, w, h);
-
-  if (altHistory.length < 2) return;
-
-  const now = Date.now();
-  const minTime = now - ALT_WINDOW;
-
-  // Find min/max altitude for scaling
-  let minAlt = Infinity, maxAlt = -Infinity;
-  for (const p of altHistory) {
-    if (p.altitude < minAlt) minAlt = p.altitude;
-    if (p.altitude > maxAlt) maxAlt = p.altitude;
-  }
-
-  // Add some padding to range
-  const range = maxAlt - minAlt;
-  const pad = range < 1 ? 5 : range * 0.2;
-  minAlt -= pad;
-  maxAlt += pad;
-
-  const toX = (t) => ((t - minTime) / ALT_WINDOW) * w;
-  const toY = (a) => h - ((a - minAlt) / (maxAlt - minAlt)) * h;
-
-  // Fill area under the line
-  altCtx.beginPath();
-  altCtx.moveTo(toX(altHistory[0].time), h);
-  for (const p of altHistory) {
-    altCtx.lineTo(toX(p.time), toY(p.altitude));
-  }
-  altCtx.lineTo(toX(altHistory[altHistory.length - 1].time), h);
-  altCtx.closePath();
-  altCtx.fillStyle = 'rgba(88, 152, 235, 0.15)';
-  altCtx.fill();
-
-  // Draw the line
-  altCtx.beginPath();
-  altCtx.moveTo(toX(altHistory[0].time), toY(altHistory[0].altitude));
-  for (let i = 1; i < altHistory.length; i++) {
-    altCtx.lineTo(toX(altHistory[i].time), toY(altHistory[i].altitude));
-  }
-  altCtx.strokeStyle = '#5898eb';
-  altCtx.lineWidth = 2;
-  altCtx.lineJoin = 'round';
-  altCtx.stroke();
-}
 
 window.api.onGpsStatus((connected) => {
   if (connected) {
@@ -1249,21 +1261,177 @@ window.api.onGpsData((gps) => {
     const speed = Math.round(gps.speed);
     document.getElementById("kmh").innerHTML = speed;
     drawSpeedometer(speed);
+    recordSignal('speed', gps.speed);
   }
 
   if (gps.altitude !== null) {
-    const now = Date.now();
-    altHistory.push({ time: now, altitude: gps.altitude });
-
-    // Remove entries older than 5 minutes
-    while (altHistory.length > 0 && altHistory[0].time < now - ALT_WINDOW) {
-      altHistory.shift();
-    }
-
-    altLabel.textContent = gps.altitude + ' m';
-    drawAltitudeGraph();
+    recordSignal('altitude', gps.altitude);
   }
 });
+
+
+// ===========================================================
+// PAGE 4 — selectable stacked line graphs
+// ===========================================================
+const GRAPH_WINDOW = 5 * 60 * 1000; // 5 minutes, same as the altitude graph
+// All signals that can be plotted. label/unit are getters so renamed analog
+// channels (from the settings page) show up live.
+const GRAPH_SIGNALS = [
+  { key: 'a0',       color: '#5898eb',     label: () => mqttCalib[0]?.name || 'A0', unit: () => mqttCalib[0]?.unit || '' },
+  { key: 'a1',       color: '#22c782',     label: () => mqttCalib[1]?.name || 'A1', unit: () => mqttCalib[1]?.unit || '' },
+  { key: 'a2',       color: '#e0a32e',     label: () => mqttCalib[2]?.name || 'A2', unit: () => mqttCalib[2]?.unit || '' },
+  { key: 'a3',       color: '#c0504d',     label: () => mqttCalib[3]?.name || 'A3', unit: () => mqttCalib[3]?.unit || '' },
+  { key: 'speed',    color: 'greenyellow', label: () => 'Speed',        unit: () => 'km/h' },
+  { key: 'altitude', color: '#9b8cff',     label: () => 'Altitude',     unit: () => 'm' },
+  { key: 'temp',     color: '#d06bd0',     label: () => 'Outside temp', unit: () => '°C' },
+];
+
+const signalHistory = {};
+GRAPH_SIGNALS.forEach(s => { signalHistory[s.key] = []; });
+
+// Append a timestamped sample and trim to the rolling window.
+function recordSignal(key, value) {
+  const v = Number(value);
+  if (!Number.isFinite(v)) return;
+  const hist = signalHistory[key];
+  if (!hist) return;
+  const now = Date.now();
+  hist.push({ time: now, value: v });
+  while (hist.length && hist[0].time < now - GRAPH_WINDOW) hist.shift();
+}
+
+let selectedGraphs;
+try { selectedGraphs = JSON.parse(localStorage.getItem('page4Graphs')); } catch { selectedGraphs = null; }
+if (!Array.isArray(selectedGraphs)) selectedGraphs = [];
+
+const graphSelect      = document.getElementById('graphSelect');
+const graphSelectBtn   = document.getElementById('graphSelectBtn');
+const graphSelectPanel = document.getElementById('graphSelectPanel');
+const graphStack       = document.getElementById('graphStack');
+const graphBlocks      = []; // { signal, canvas, label }
+
+function buildGraphSelectPanel() {
+  graphSelectPanel.innerHTML = '';
+  GRAPH_SIGNALS.forEach(s => {
+    const opt = document.createElement('label');
+    opt.className = 'graphSelectOption';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = selectedGraphs.includes(s.key);
+    cb.addEventListener('change', () => {
+      if (cb.checked) {
+        if (!selectedGraphs.includes(s.key)) selectedGraphs.push(s.key);
+      } else {
+        selectedGraphs = selectedGraphs.filter(k => k !== s.key);
+      }
+      localStorage.setItem('page4Graphs', JSON.stringify(selectedGraphs));
+      rebuildGraphStack();
+    });
+    const swatch = document.createElement('span');
+    swatch.className = 'graphSelectSwatch';
+    swatch.style.background = s.color;
+    const text = document.createElement('span');
+    text.textContent = s.label();
+    opt.append(cb, swatch, text);
+    graphSelectPanel.appendChild(opt);
+  });
+}
+
+function rebuildGraphStack() {
+  graphStack.innerHTML = '';
+  graphBlocks.length = 0;
+  // Keep the registry order for a stable top-to-bottom stack.
+  const chosen = GRAPH_SIGNALS.filter(s => selectedGraphs.includes(s.key));
+  if (chosen.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'graphStackEmpty';
+    empty.textContent = 'No graphs selected';
+    graphStack.appendChild(empty);
+    return;
+  }
+  chosen.forEach(s => {
+    const block = document.createElement('div');
+    block.className = 'graphBlock';
+    const canvas = document.createElement('canvas');
+    const label = document.createElement('div');
+    label.className = 'graphBlockLabel';
+    block.append(canvas, label);
+    graphStack.appendChild(block);
+    graphBlocks.push({ signal: s, canvas, label });
+  });
+  drawPage4Graphs();
+}
+
+// Generic time-series renderer, styled like the altitude graph.
+function drawSeries(canvas, hist, color) {
+  const rect = canvas.parentElement.getBoundingClientRect();
+  if (rect.width === 0 || rect.height === 0) return;
+  const ctx = canvas.getContext('2d');
+  canvas.width  = rect.width  * devicePixelRatio;
+  canvas.height = rect.height * devicePixelRatio;
+  ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+  const w = rect.width, h = rect.height;
+  ctx.clearRect(0, 0, w, h);
+  if (hist.length < 2) return;
+
+  const minTime = Date.now() - GRAPH_WINDOW;
+  let min = Infinity, max = -Infinity;
+  for (const p of hist) { if (p.value < min) min = p.value; if (p.value > max) max = p.value; }
+  const range = max - min;
+  const pad = range < 1 ? 5 : range * 0.2;
+  min -= pad; max += pad;
+
+  const toX = t => ((t - minTime) / GRAPH_WINDOW) * w;
+  const toY = v => h - ((v - min) / (max - min)) * h;
+
+  ctx.beginPath();
+  ctx.moveTo(toX(hist[0].time), h);
+  for (const p of hist) ctx.lineTo(toX(p.time), toY(p.value));
+  ctx.lineTo(toX(hist[hist.length - 1].time), h);
+  ctx.closePath();
+  ctx.save();
+  ctx.globalAlpha = 0.15;
+  ctx.fillStyle = color;
+  ctx.fill();
+  ctx.restore();
+
+  ctx.beginPath();
+  ctx.moveTo(toX(hist[0].time), toY(hist[0].value));
+  for (let i = 1; i < hist.length; i++) ctx.lineTo(toX(hist[i].time), toY(hist[i].value));
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  ctx.lineJoin = 'round';
+  ctx.stroke();
+}
+
+function drawPage4Graphs() {
+  graphBlocks.forEach(({ signal, canvas, label }) => {
+    const hist = signalHistory[signal.key];
+    drawSeries(canvas, hist, signal.color);
+    const latest = hist.length ? hist[hist.length - 1].value : null;
+    const unit = signal.unit();
+    label.textContent = latest == null
+      ? signal.label()
+      : `${signal.label()}: ${latest.toFixed(1)}${unit ? ' ' + unit : ''}`;
+  });
+}
+
+if (graphSelectBtn) {
+  graphSelectBtn.addEventListener('click', () => graphSelectPanel.classList.toggle('hidden'));
+  // Keep page swiping from hijacking taps/drags inside the picker.
+  ['touchstart', 'touchmove', 'touchend', 'mousedown', 'mousemove', 'mouseup'].forEach(evt => {
+    graphSelect.addEventListener(evt, e => e.stopPropagation());
+  });
+  // Defer building until load so mqttCalib (defined later) is initialized.
+  window.addEventListener('load', () => {
+    buildGraphSelectPanel();
+    rebuildGraphStack();
+    // Refresh while page 4 is on screen (canvases keep layout size even off-screen).
+    setInterval(() => {
+      if (currentPage === CENTER_PAGE && currentVPage === 1) drawPage4Graphs();
+    }, 1000);
+  });
+}
 
 
 /* --- stadjan image / webcam toggle --- */
@@ -1313,14 +1481,24 @@ settingsCloseBtn.addEventListener('click', () => {
 /* --- MQTT graph input calibration --- */
 const mqttRaw = [0, 0, 0, 0];
 const CALIB_MAX_POINTS = 5;
-const defaultCalib = () => ({
+// Default channel names + the page label element that shows each one (A0–A3).
+const DEFAULT_NAMES   = ['Heater tank', 'Camper volt', 'Engine volt', 'Coolant temp'];
+const NAME_LABEL_IDS  = ['dieselTank', 'livingVoltage', 'engineVoltage', 'coolantTemp'];
+const defaultCalib = (i = 0) => ({
   points: [
     { raw: 0,   mapped: 0   },
     { raw: 100, mapped: 100 },
   ],
+  min: 0,
   max: 100,
   lowThreshold: 15,
   highThreshold: 85,
+  name:        DEFAULT_NAMES[i] ?? '',
+  decimals:    0,
+  unit:        '',
+  lowColor:    '#bd5c0d',
+  normalColor: '#055180',
+  highColor:   '#a83a3a',
 });
 
 function loadCalib(i) {
@@ -1329,14 +1507,21 @@ function loadCalib(i) {
     if (parsed && Array.isArray(parsed.points)
         && parsed.points.length >= 2
         && parsed.points.length <= CALIB_MAX_POINTS) {
-      const d = defaultCalib();
+      const d = defaultCalib(i);
+      if (!Number.isFinite(parsed.min))           parsed.min           = d.min;
       if (!Number.isFinite(parsed.max))           parsed.max           = d.max;
       if (!Number.isFinite(parsed.lowThreshold))  parsed.lowThreshold  = d.lowThreshold;
       if (!Number.isFinite(parsed.highThreshold)) parsed.highThreshold = d.highThreshold;
+      if (!Number.isFinite(parsed.decimals))      parsed.decimals      = d.decimals;
+      if (typeof parsed.name        !== 'string') parsed.name          = d.name;
+      if (typeof parsed.unit        !== 'string') parsed.unit          = d.unit;
+      if (typeof parsed.lowColor    !== 'string') parsed.lowColor      = d.lowColor;
+      if (typeof parsed.normalColor !== 'string') parsed.normalColor   = d.normalColor;
+      if (typeof parsed.highColor   !== 'string') parsed.highColor     = d.highColor;
       return parsed;
     }
   } catch {}
-  return defaultCalib();
+  return defaultCalib(i);
 }
 
 const mqttCalib = [0, 1, 2, 3].map(loadCalib);
@@ -1348,68 +1533,23 @@ function activeCalibPoints(idx) {
     .sort((a, b) => a.raw - b.raw);
 }
 
-// Solve Ax = b for square A via Gaussian elimination with partial pivoting.
-function solveLinear(A, b) {
-  const n = A.length;
-  const M = A.map((row, i) => [...row, b[i]]);
-  for (let i = 0; i < n; i++) {
-    let maxRow = i;
-    for (let k = i + 1; k < n; k++) {
-      if (Math.abs(M[k][i]) > Math.abs(M[maxRow][i])) maxRow = k;
-    }
-    [M[i], M[maxRow]] = [M[maxRow], M[i]];
-    if (Math.abs(M[i][i]) < 1e-12) return null;
-    for (let k = i + 1; k < n; k++) {
-      const f = M[k][i] / M[i][i];
-      for (let j = i; j <= n; j++) M[k][j] -= f * M[i][j];
-    }
-  }
-  const x = new Array(n);
-  for (let i = n - 1; i >= 0; i--) {
-    let s = M[i][n];
-    for (let j = i + 1; j < n; j++) s -= M[i][j] * x[j];
-    x[i] = s / M[i][i];
-  }
-  return x;
-}
-
-// Least-squares polynomial fit of given degree. Returns coefficients c0 + c1*x + c2*x^2 + ...
-function polyFit(pts, degree) {
-  const m = degree + 1;
-  const A = Array.from({ length: m }, () => new Array(m).fill(0));
-  const b = new Array(m).fill(0);
-  for (const p of pts) {
-    const powers = new Array(2 * m - 1);
-    powers[0] = 1;
-    for (let k = 1; k < powers.length; k++) powers[k] = powers[k - 1] * p.raw;
-    for (let i = 0; i < m; i++) {
-      for (let j = 0; j < m; j++) A[i][j] += powers[i + j];
-      b[i] += powers[i] * p.mapped;
-    }
-  }
-  return solveLinear(A, b);
-}
-
-function evalPoly(coeffs, x) {
-  let r = 0;
-  for (let i = coeffs.length - 1; i >= 0; i--) r = r * x + coeffs[i];
-  return r;
-}
-
 function buildCalibFn(idx) {
   const pts = activeCalibPoints(idx);
   if (pts.length === 0) return x => x;
   if (pts.length === 1) return () => pts[0].mapped;
-  if (pts.length === 2) {
-    const [p0, p1] = pts;
-    if (p0.raw === p1.raw) return () => p0.mapped;
+  // Piecewise linear interpolation between adjacent points (sorted by raw).
+  // Inputs below the first / above the last point are extrapolated along the
+  // first / last segment respectively.
+  return x => {
+    // Find the segment [p0, p1] whose raw range contains x.
+    let i = 0;
+    while (i < pts.length - 2 && x > pts[i + 1].raw) i++;
+    const p0 = pts[i];
+    const p1 = pts[i + 1];
+    if (p0.raw === p1.raw) return p0.mapped;
     const m = (p1.mapped - p0.mapped) / (p1.raw - p0.raw);
-    return x => p0.mapped + (x - p0.raw) * m;
-  }
-  const degree = Math.min(pts.length - 1, 3);
-  const coeffs = polyFit(pts, degree);
-  if (!coeffs) return x => x;
-  return x => evalPoly(coeffs, x);
+    return p0.mapped + (x - p0.raw) * m;
+  };
 }
 
 function getCalibFn(idx) {
@@ -1430,9 +1570,19 @@ const calibRows       = document.querySelectorAll('.calibRow[data-point]');
 const curveCanvas     = document.getElementById('calibCurve');
 const curveCtx        = curveCanvas.getContext('2d');
 const addPointBtn     = document.getElementById('addPointBtn');
+const rangeMinEl      = document.getElementById('rangeMin');
 const rangeMaxEl      = document.getElementById('rangeMax');
 const rangeLowEl      = document.getElementById('rangeLow');
 const rangeHighEl     = document.getElementById('rangeHigh');
+const dispNameEl      = document.getElementById('dispName');
+const dispDecimalsEl  = document.getElementById('dispDecimals');
+const dispUnitEl      = document.getElementById('dispUnit');
+const dispLowColorEl  = document.getElementById('dispLowColor');
+const dispNormalColorEl = document.getElementById('dispNormalColor');
+const dispHighColorEl = document.getElementById('dispHighColor');
+
+// Apply saved channel names to the page labels + dropdown on startup.
+[0, 1, 2, 3].forEach(applyChannelName);
 
 function getRowInputs(row) {
   return {
@@ -1463,9 +1613,16 @@ function loadRowsFromCalib(idx) {
       mapped.value = '';
     }
   });
+  rangeMinEl.value  = c.min;
   rangeMaxEl.value  = c.max;
   rangeLowEl.value  = c.lowThreshold;
   rangeHighEl.value = c.highThreshold;
+  dispNameEl.value        = c.name;
+  dispDecimalsEl.value    = c.decimals;
+  dispUnitEl.value        = c.unit;
+  dispLowColorEl.value    = c.lowColor;
+  dispNormalColorEl.value = c.normalColor;
+  dispHighColorEl.value   = c.highColor;
   updateAddPointBtn(idx);
 }
 
@@ -1482,11 +1639,19 @@ function readRowsToCalib(idx) {
   const prev = mqttCalib[idx];
   mqttCalib[idx] = {
     points,
+    min:           rangeMinEl.value  === '' ? prev.min          : parseFloat(rangeMinEl.value),
     max:           rangeMaxEl.value  === '' ? prev.max          : parseFloat(rangeMaxEl.value),
     lowThreshold:  rangeLowEl.value  === '' ? prev.lowThreshold : parseFloat(rangeLowEl.value),
     highThreshold: rangeHighEl.value === '' ? prev.highThreshold: parseFloat(rangeHighEl.value),
+    name:          dispNameEl.value,
+    decimals:      dispDecimalsEl.value === '' ? prev.decimals  : parseInt(dispDecimalsEl.value, 10),
+    unit:          dispUnitEl.value,
+    lowColor:      dispLowColorEl.value    || prev.lowColor,
+    normalColor:   dispNormalColorEl.value || prev.normalColor,
+    highColor:     dispHighColorEl.value   || prev.highColor,
   };
   invalidateCalibCache(idx);
+  applyChannelName(idx);
   drawGraph();
 }
 
@@ -1645,7 +1810,9 @@ addPointBtn.addEventListener('click', () => {
   updateLiveCalibDisplay();
 });
 
-[rangeMaxEl, rangeLowEl, rangeHighEl].forEach(inp => {
+[rangeMinEl, rangeMaxEl, rangeLowEl, rangeHighEl,
+ dispNameEl, dispDecimalsEl, dispUnitEl,
+ dispLowColorEl, dispNormalColorEl, dispHighColorEl].forEach(inp => {
   inp.addEventListener('input', () => {
     const idx = parseInt(mqttInputSelect.value, 10);
     if (isNaN(idx)) return;
