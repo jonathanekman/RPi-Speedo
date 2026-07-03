@@ -19,6 +19,13 @@ const ws = require('ws');
 const http = require('http');
 const os = require('os');
 const QRCode = require('qrcode');
+const { setupPicoLink, restorePicoLink } = require('./picoNet');
+
+// Use software rendering. The GPU process can fail to launch on some setups
+// (and on the Raspberry Pi's weak GPU), which is fatal for the whole app
+// ("GPU process isn't usable. Goodbye.") and leaves the window frozen on its
+// last frame — looking like the UI stopped updating. Must run before app ready.
+app.disableHardwareAcceleration();
 
 let mainWindow = null;
 let roofQrDataUrl = null;
@@ -725,6 +732,21 @@ function startMQTTBroker() {
     console.log('MQTT WS server listening on port', WS_PORT);
   });
 
+  // The controllerBox device (pico01) both publishes the ~60 msg/s
+  // controllerBox/* firehose AND subscribes to controllerBox/#, so the broker
+  // echoes the whole stream back to a device that can't drain it. That
+  // backpressure fills mqemitter's queue, and its recursive drain
+  // (released -> _do -> released) eventually overflows the stack (RangeError:
+  // Maximum call stack size exceeded). The device has no need to receive its
+  // own data, so deny it that subscription. (Other clients — e.g. a debug
+  // mosquitto_sub on a PC that drains fast — may still subscribe.)
+  aedes.authorizeSubscribe = (client, sub, cb) => {
+    if (client?.id === 'pico01' && sub.topic.startsWith('controllerBox')) {
+      return cb(null, null); // deny — breaks the echo/backpressure loop
+    }
+    cb(null, sub);
+  };
+
   // Logging
   aedes.on('client', (client) => console.log('[CONNECT]', client.id));
   aedes.on('clientDisconnect', (client) => console.log('[DISCONNECT]', client.id));
@@ -838,6 +860,7 @@ app.whenReady().then(() => {
     if (permission === 'media') return callback(true);
     callback(false);
   });
+  setupPicoLink();
   startMQTTBroker();
   startHelloServer();
   refreshRoofQr();
@@ -859,6 +882,18 @@ app.whenReady().then(() => {
   // win.loadFile("index.html");
 });
 
+
+// Restore the wired NIC to its pre-launch state before exiting. Both quit paths
+// (window-all-closed below and the quit-app IPC) funnel through app.quit(), so
+// this single gate covers them all.
+let netRestored = false;
+app.on('before-quit', (e) => {
+  if (netRestored) return;
+  e.preventDefault();
+  restorePicoLink()
+    .catch(err => console.error('[picoNet] restore failed', err))
+    .finally(() => { netRestored = true; app.quit(); });
+});
 
 // Quit when all windows closed (except macOS)
 app.on('window-all-closed', () => {

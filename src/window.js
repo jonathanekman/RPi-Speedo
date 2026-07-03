@@ -1184,6 +1184,7 @@ function handleMQTT(topic, payload) {
   // -------- ANALOG INPUTS --------
   if (topic.startsWith("controllerBox/A")) {
     const idx = Number(topic.slice(-1));
+    if (idx > 3) return; // UI has only 4 analog channels (A0–A3); A4–A7 are uncalibrated
 
     const raw = Number(payload);
     mqttRaw[idx] = raw;
@@ -1240,7 +1241,13 @@ function handleMQTT(topic, payload) {
 
 window.api.onMqttBatch((batch) => {
   for (const [topic, payload] of batch) {
-    handleMQTT(topic, payload);
+    try {
+      handleMQTT(topic, payload);
+    } catch (err) {
+      // One malformed/unhandled topic must not abort the rest of the batch
+      // (this is what was freezing outsideTemp behind the A4–A7 error).
+      console.error('handleMQTT failed for', topic, err);
+    }
   }
 });
 
