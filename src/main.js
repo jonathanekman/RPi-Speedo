@@ -611,12 +611,21 @@ const HELLO_HTML = `<!DOCTYPE html>
 
 function getLanIp() {
   const ifaces = os.networkInterfaces();
-  for (const name of Object.keys(ifaces)) {
-    for (const iface of ifaces[name] || []) {
-      if (iface.family === 'IPv4' && !iface.internal) return iface.address;
+  const candidates = [];
+  for (const [name, addrs] of Object.entries(ifaces)) {
+    if (/^(lo|docker|veth|br-)/.test(name)) continue;      // skip loopback/virtual
+    for (const iface of addrs || []) {
+      if (iface.family !== 'IPv4' || iface.internal) continue;
+      // Skip the dedicated point-to-point link to the controllerBox (192.168.2.x,
+      // see picoNet). The QR is scanned by a phone on the LAN/WiFi, which can't
+      // reach that private link — this is what pinned the Pi's QR to 192.168.2.1.
+      if (iface.address.startsWith('192.168.2.')) continue;
+      candidates.push({ name, address: iface.address });
     }
   }
-  return '127.0.0.1';
+  // Prefer WiFi (wlan0 / wlp*) so the QR points at the network the phone is on.
+  const wifi = candidates.find(c => /^wl/.test(c.name));
+  return (wifi || candidates[0])?.address || '127.0.0.1';
 }
 
 let lastRoofIp = null;
