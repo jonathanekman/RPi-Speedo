@@ -1188,7 +1188,9 @@ function handleMQTT(topic, payload) {
 
     const raw = Number(payload);
     mqttRaw[idx] = raw;
-    const value = applyCalib(idx, raw);
+    const filtered = applyFilter(idx, raw);
+    mqttFiltered[idx] = filtered;
+    const value = applyCalib(idx, filtered);
 
     switch (idx) {
       case 0: heaterTank = value; options1.percent = value; break;
@@ -1487,6 +1489,7 @@ settingsCloseBtn.addEventListener('click', () => {
 
 /* --- MQTT graph input calibration --- */
 const mqttRaw = [0, 0, 0, 0];
+const mqttFiltered = [0, 0, 0, 0]; // raw after the moving-average filter
 const CALIB_MAX_POINTS = 5;
 // Default channel names + the page label element that shows each one (A0–A3).
 const DEFAULT_NAMES   = ['Heater tank', 'Camper volt', 'Engine volt', 'Coolant temp'];
@@ -1500,6 +1503,7 @@ const defaultCalib = (i = 0) => ({
   max: 100,
   lowThreshold: 15,
   highThreshold: 85,
+  filterWindow: 1, // moving-average window in # of readings; 1 = raw/unfiltered
   name:        DEFAULT_NAMES[i] ?? '',
   decimals:    0,
   unit:        '',
@@ -1519,6 +1523,9 @@ function loadCalib(i) {
       if (!Number.isFinite(parsed.max))           parsed.max           = d.max;
       if (!Number.isFinite(parsed.lowThreshold))  parsed.lowThreshold  = d.lowThreshold;
       if (!Number.isFinite(parsed.highThreshold)) parsed.highThreshold = d.highThreshold;
+      if (!Number.isFinite(parsed.filterWindow) || parsed.filterWindow < 1)
+                                                  parsed.filterWindow  = d.filterWindow;
+      else parsed.filterWindow = Math.floor(parsed.filterWindow);
       if (!Number.isFinite(parsed.decimals))      parsed.decimals      = d.decimals;
       if (typeof parsed.name        !== 'string') parsed.name          = d.name;
       if (typeof parsed.unit        !== 'string') parsed.unit          = d.unit;
@@ -1570,6 +1577,21 @@ function applyCalib(idx, raw) {
   return getCalibFn(idx)(raw);
 }
 
+// -------- ANALOG INPUT FILTER --------
+// Moving average over the last N raw readings per channel, where N is the
+// channel's `filterWindow` (1 = raw/unfiltered). Smooths jittery analog inputs.
+const filterBuffers = [[], [], [], []];
+
+function applyFilter(idx, raw) {
+  const n = Math.max(1, Math.floor(mqttCalib[idx]?.filterWindow || 1));
+  const buf = filterBuffers[idx];
+  buf.push(raw);
+  while (buf.length > n) buf.shift();
+  let sum = 0;
+  for (const v of buf) sum += v;
+  return sum / buf.length;
+}
+
 const mqttInputSelect = document.getElementById('mqttInputSelect');
 const liveRawEl       = document.getElementById('liveRawValue');
 const liveMappedEl    = document.getElementById('liveMappedValue');
@@ -1581,6 +1603,7 @@ const rangeMinEl      = document.getElementById('rangeMin');
 const rangeMaxEl      = document.getElementById('rangeMax');
 const rangeLowEl      = document.getElementById('rangeLow');
 const rangeHighEl     = document.getElementById('rangeHigh');
+const dispFilterEl    = document.getElementById('dispFilter');
 const dispNameEl      = document.getElementById('dispName');
 const dispDecimalsEl  = document.getElementById('dispDecimals');
 const dispUnitEl      = document.getElementById('dispUnit');
@@ -1624,6 +1647,7 @@ function loadRowsFromCalib(idx) {
   rangeMaxEl.value  = c.max;
   rangeLowEl.value  = c.lowThreshold;
   rangeHighEl.value = c.highThreshold;
+  dispFilterEl.value = c.filterWindow;
   dispNameEl.value        = c.name;
   dispDecimalsEl.value    = c.decimals;
   dispUnitEl.value        = c.unit;
@@ -1650,6 +1674,8 @@ function readRowsToCalib(idx) {
     max:           rangeMaxEl.value  === '' ? prev.max          : parseFloat(rangeMaxEl.value),
     lowThreshold:  rangeLowEl.value  === '' ? prev.lowThreshold : parseFloat(rangeLowEl.value),
     highThreshold: rangeHighEl.value === '' ? prev.highThreshold: parseFloat(rangeHighEl.value),
+    filterWindow:  dispFilterEl.value === '' ? prev.filterWindow
+                     : Math.max(1, Math.floor(parseFloat(dispFilterEl.value)) || 1),
     name:          dispNameEl.value,
     decimals:      dispDecimalsEl.value === '' ? prev.decimals  : parseInt(dispDecimalsEl.value, 10),
     unit:          dispUnitEl.value,
@@ -1766,7 +1792,7 @@ function updateLiveCalibDisplay() {
   }
   const raw = mqttRaw[idx];
   liveRawEl.textContent    = Number.isFinite(raw) ? raw.toFixed(2) : '—';
-  liveMappedEl.textContent = applyCalib(idx, raw).toFixed(2);
+  liveMappedEl.textContent = applyCalib(idx, mqttFiltered[idx]).toFixed(2);
   drawCalibCurve(idx);
 }
 
@@ -1817,7 +1843,7 @@ addPointBtn.addEventListener('click', () => {
   updateLiveCalibDisplay();
 });
 
-[rangeMinEl, rangeMaxEl, rangeLowEl, rangeHighEl,
+[rangeMinEl, rangeMaxEl, rangeLowEl, rangeHighEl, dispFilterEl,
  dispNameEl, dispDecimalsEl, dispUnitEl,
  dispLowColorEl, dispNormalColorEl, dispHighColorEl].forEach(inp => {
   inp.addEventListener('input', () => {
