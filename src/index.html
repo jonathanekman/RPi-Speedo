@@ -301,6 +301,7 @@
     <div class="settingsTabs">
       <button class="settingsTab active" data-tab="analog">Analog</button>
       <button class="settingsTab" data-tab="digital">Digital</button>
+      <button class="settingsTab" data-tab="network">Network</button>
     </div>
 
     <div class="settingsTabPanel active" data-tab-panel="analog">
@@ -437,6 +438,36 @@
         <div id="blinkerMapList"></div>
       </div>
     </div><!-- end digital panel -->
+
+    <div class="settingsTabPanel" data-tab-panel="network">
+      <div class="calibSection">
+        <h2>Wi-Fi</h2>
+        <div class="wifiStatusRow">
+          <span>Current: <span id="wifiCurrent">—</span></span>
+          <button id="wifiScanBtn">Scan</button>
+        </div>
+        <p class="digitalHint" id="wifiHint">Select a network to connect. Secured
+          networks will ask for a password.</p>
+
+        <div id="wifiList" class="wifiList"></div>
+
+        <div id="wifiConnectBox" class="wifiConnectBox hidden">
+          <div class="calibRow">
+            <label>Network:</label>
+            <span id="wifiSelectedSsid">—</span>
+          </div>
+          <div class="calibRow" id="wifiPasswordRow">
+            <label>Password:</label>
+            <input type="password" id="wifiPassword" placeholder="Wi-Fi password">
+            <label class="wifiShowPw"><input type="checkbox" id="wifiShowPw"> show</label>
+          </div>
+          <div class="calibRow">
+            <button id="wifiConnectBtn">Connect</button>
+            <span id="wifiConnectMsg" class="wifiConnectMsg"></span>
+          </div>
+        </div>
+      </div>
+    </div><!-- end network panel -->
 
   </div>
 </div>

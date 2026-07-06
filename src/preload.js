@@ -40,6 +40,11 @@ contextBridge.exposeInMainWorld("api", {
     // CPU temperature (°C) + program uptime (seconds)
     getSystemStats: () => ipcRenderer.invoke("getSystemStats"),
 
+    // Wi-Fi (Settings → Network), backed by nmcli
+    wifiScan:    () => ipcRenderer.invoke("wifiScan"),
+    wifiStatus:  () => ipcRenderer.invoke("wifiStatus"),
+    wifiConnect: (ssid, password) => ipcRenderer.invoke("wifiConnect", { ssid, password }),
+
     // ✔ FIXED — correctly forwards the path string
     serialOpen: (portPath) => ipcRenderer.invoke("serialOpen", portPath),
 

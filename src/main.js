@@ -18,6 +18,7 @@ const net = require('net');
 const ws = require('ws');
 const http = require('http');
 const os = require('os');
+const { execFile } = require('child_process');
 const QRCode = require('qrcode');
 const { setupPicoLink, restorePicoLink } = require('./picoNet');
 
@@ -223,6 +224,100 @@ ipcMain.handle("getSystemStats", () => {
     if (Number.isFinite(c)) cpuTemp = c;
   } catch { /* not available on this platform */ }
   return { cpuTemp, uptime: process.uptime() };
+});
+
+// ===========================================================
+// Wi-Fi management via nmcli (NetworkManager) — Settings → Network
+// ===========================================================
+// nmcli -t (terminal mode) separates fields with ':' and escapes any ':'
+// inside a field value with a backslash. Split on unescaped colons only.
+function splitNmcli(line) {
+  const out = [];
+  let cur = "";
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === "\\" && i + 1 < line.length) { cur += line[i + 1]; i++; }
+    else if (ch === ":") { out.push(cur); cur = ""; }
+    else cur += ch;
+  }
+  out.push(cur);
+  return out;
+}
+
+function nmcli(args, timeout = 15000) {
+  return new Promise((resolve) => {
+    execFile("nmcli", args, { timeout }, (err, stdout, stderr) => {
+      resolve({ err, stdout: stdout || "", stderr: stderr || "" });
+    });
+  });
+}
+
+// Scan for visible networks. Returns de-duplicated SSIDs (strongest signal),
+// each flagged active (currently connected) / secured (needs a password).
+ipcMain.handle("wifiScan", async () => {
+  const { err, stdout, stderr } = await nmcli(
+    ["-t", "-f", "ACTIVE,SSID,SIGNAL,SECURITY", "dev", "wifi", "list", "--rescan", "yes"]
+  );
+  if (err) {
+    return { ok: false, error: (stderr || err.message || "nmcli failed").trim(), networks: [] };
+  }
+  const bySsid = new Map();
+  stdout.split("\n").forEach((line) => {
+    if (!line.trim()) return;
+    const [active, ssid, signalStr, security] = splitNmcli(line);
+    if (!ssid) return; // hidden / unnamed networks
+    const signal = parseInt(signalStr, 10) || 0;
+    const isActive = active === "yes";
+    const secured = !!security && security !== "--";
+    const prev = bySsid.get(ssid);
+    if (!prev || signal > prev.signal) {
+      bySsid.set(ssid, { ssid, signal, secured, active: isActive || (prev && prev.active) });
+    } else if (isActive) {
+      prev.active = true;
+    }
+  });
+  const networks = Array.from(bySsid.values()).sort((a, b) => b.signal - a.signal);
+  return { ok: true, networks };
+});
+
+// Currently connected SSID (lightweight, no rescan).
+ipcMain.handle("wifiStatus", async () => {
+  const { err, stdout } = await nmcli(["-t", "-f", "ACTIVE,SSID", "dev", "wifi"], 10000);
+  if (err) return { ok: false, ssid: null };
+  let ssid = null;
+  stdout.split("\n").forEach((line) => {
+    const parts = splitNmcli(line);
+    if (parts[0] === "yes" && parts[1]) ssid = parts[1];
+  });
+  return { ok: true, ssid };
+});
+
+// Connect to a network. Password optional (omitted for open networks or when
+// NetworkManager already has stored credentials for the SSID).
+ipcMain.handle("wifiConnect", async (_e, payload) => {
+  const ssid = payload && typeof payload.ssid === "string" ? payload.ssid : "";
+  const password = payload && typeof payload.password === "string" ? payload.password : "";
+  if (!ssid) return { ok: false, error: "No network selected" };
+
+  const connect = () => {
+    const args = ["dev", "wifi", "connect", ssid];
+    if (password) args.push("password", password);
+    return nmcli(args, 30000);
+  };
+
+  let { err, stdout, stderr } = await connect();
+
+  // NetworkManager sometimes has a stale/incomplete saved profile for the SSID
+  // (common on the Pi after a failed attempt): "802-11-wireless-security.key-mgmt:
+  // property is missing". Delete that profile and retry once with a clean one.
+  const msg = stderr || (err && err.message) || "";
+  if (err && /key-mgmt|property is missing|Secrets were required/i.test(msg)) {
+    await nmcli(["connection", "delete", ssid], 10000); // ignore result if absent
+    ({ err, stdout, stderr } = await connect());
+  }
+
+  if (err) return { ok: false, error: (stderr || err.message || "Connection failed").trim() };
+  return { ok: true, message: (stdout || "").trim() };
 });
 
 // UI events

@@ -1601,6 +1601,140 @@ async function refreshSystemStats() {
 refreshSystemStats();
 setInterval(refreshSystemStats, 5000);
 
+/* --- Wi-Fi (Settings → Network) --- */
+const wifiCurrentEl   = document.getElementById('wifiCurrent');
+const wifiScanBtn     = document.getElementById('wifiScanBtn');
+const wifiListEl      = document.getElementById('wifiList');
+const wifiConnectBox  = document.getElementById('wifiConnectBox');
+const wifiSelectedEl  = document.getElementById('wifiSelectedSsid');
+const wifiPasswordRow = document.getElementById('wifiPasswordRow');
+const wifiPasswordEl  = document.getElementById('wifiPassword');
+const wifiShowPwEl    = document.getElementById('wifiShowPw');
+const wifiConnectBtn  = document.getElementById('wifiConnectBtn');
+const wifiConnectMsg  = document.getElementById('wifiConnectMsg');
+const networkTabBtn   = document.querySelector('.settingsTab[data-tab="network"]');
+
+let wifiSelected = null; // { ssid, secured }
+let wifiScanning = false;
+
+function setWifiMsg(text, kind) {
+  if (!wifiConnectMsg) return;
+  wifiConnectMsg.textContent = text || '';
+  wifiConnectMsg.className = 'wifiConnectMsg' + (kind ? ' ' + kind : '');
+}
+
+async function refreshWifiStatus() {
+  if (!wifiCurrentEl) return;
+  try {
+    const res = await window.api.wifiStatus();
+    wifiCurrentEl.textContent = res && res.ssid ? res.ssid : 'Not connected';
+  } catch {
+    wifiCurrentEl.textContent = '—';
+  }
+}
+
+function renderWifiList(networks) {
+  if (!wifiListEl) return;
+  wifiListEl.innerHTML = '';
+  if (!networks.length) {
+    wifiListEl.innerHTML = '<div class="wifiItem">No networks found.</div>';
+    return;
+  }
+  networks.forEach(net => {
+    const row = document.createElement('div');
+    row.className = 'wifiItem' + (net.active ? ' active' : '');
+    if (wifiSelected && wifiSelected.ssid === net.ssid) row.classList.add('selected');
+
+    const name = document.createElement('span');
+    name.className = 'wifiSsid';
+    name.textContent = net.ssid;
+
+    const meta = document.createElement('span');
+    meta.className = 'wifiMeta';
+    const bits = [];
+    if (net.active) bits.push('✓ connected');
+    bits.push((net.secured ? '🔒 ' : '🔓 ') + net.signal + '%');
+    meta.textContent = bits.join('   ');
+
+    row.append(name, meta);
+    row.addEventListener('click', () => selectWifi(net));
+    wifiListEl.appendChild(row);
+  });
+}
+
+function selectWifi(net) {
+  wifiSelected = { ssid: net.ssid, secured: net.secured };
+  // Highlight the chosen row.
+  wifiListEl.querySelectorAll('.wifiItem').forEach(r => {
+    r.classList.toggle('selected', r.querySelector('.wifiSsid')?.textContent === net.ssid);
+  });
+  if (wifiSelectedEl) wifiSelectedEl.textContent = net.ssid;
+  if (wifiPasswordRow) wifiPasswordRow.style.display = net.secured ? '' : 'none';
+  if (wifiPasswordEl) wifiPasswordEl.value = '';
+  setWifiMsg('');
+  if (wifiConnectBox) wifiConnectBox.classList.remove('hidden');
+  if (net.secured && wifiPasswordEl) wifiPasswordEl.focus();
+}
+
+async function scanWifi() {
+  if (wifiScanning || !wifiListEl) return;
+  wifiScanning = true;
+  if (wifiScanBtn) { wifiScanBtn.disabled = true; wifiScanBtn.textContent = 'Scanning…'; }
+  wifiListEl.innerHTML = '<div class="wifiItem">Scanning…</div>';
+  try {
+    const res = await window.api.wifiScan();
+    if (!res || !res.ok) {
+      wifiListEl.innerHTML = '<div class="wifiItem">Scan failed: ' +
+        ((res && res.error) || 'unknown error') + '</div>';
+    } else {
+      renderWifiList(res.networks);
+    }
+  } catch (err) {
+    wifiListEl.innerHTML = '<div class="wifiItem">Scan error: ' + err.message + '</div>';
+  } finally {
+    wifiScanning = false;
+    if (wifiScanBtn) { wifiScanBtn.disabled = false; wifiScanBtn.textContent = 'Scan'; }
+  }
+  refreshWifiStatus();
+}
+
+async function connectWifi() {
+  if (!wifiSelected) return;
+  const ssid = wifiSelected.ssid;
+  const password = wifiSelected.secured && wifiPasswordEl ? wifiPasswordEl.value : '';
+  if (wifiConnectBtn) wifiConnectBtn.disabled = true;
+  setWifiMsg('Connecting to ' + ssid + '…');
+  try {
+    const res = await window.api.wifiConnect(ssid, password);
+    if (res && res.ok) {
+      setWifiMsg('Connected to ' + ssid, 'success');
+      refreshWifiStatus();
+      setTimeout(scanWifi, 1500);
+    } else {
+      setWifiMsg((res && res.error) || 'Connection failed', 'error');
+    }
+  } catch (err) {
+    setWifiMsg('Error: ' + err.message, 'error');
+  } finally {
+    if (wifiConnectBtn) wifiConnectBtn.disabled = false;
+  }
+}
+
+if (wifiScanBtn)    wifiScanBtn.addEventListener('click', scanWifi);
+if (wifiConnectBtn) wifiConnectBtn.addEventListener('click', connectWifi);
+if (wifiShowPwEl && wifiPasswordEl) {
+  wifiShowPwEl.addEventListener('change', () => {
+    wifiPasswordEl.type = wifiShowPwEl.checked ? 'text' : 'password';
+  });
+}
+// Auto-scan the first time the Network tab is opened; refresh status too.
+if (networkTabBtn) {
+  networkTabBtn.addEventListener('click', () => {
+    refreshWifiStatus();
+    if (!wifiScanning && wifiListEl && wifiListEl.children.length === 0) scanWifi();
+  });
+}
+
 /* --- MQTT graph input calibration --- */
 const mqttRaw = [0, 0, 0, 0];
 const mqttFiltered = [0, 0, 0, 0]; // raw after the moving-average filter
