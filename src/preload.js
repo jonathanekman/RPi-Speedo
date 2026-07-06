@@ -37,6 +37,9 @@ contextBridge.exposeInMainWorld("api", {
 
     loadKphJson: () => ipcRenderer.invoke("load-kph-json"),
 
+    // CPU temperature (°C) + program uptime (seconds)
+    getSystemStats: () => ipcRenderer.invoke("getSystemStats"),
+
     // ✔ FIXED — correctly forwards the path string
     serialOpen: (portPath) => ipcRenderer.invoke("serialOpen", portPath),
 

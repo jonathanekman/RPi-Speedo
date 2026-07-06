@@ -356,11 +356,46 @@ body {
 .leftCircle {
   margin-left: -120%;
   font-family: sevenSegment;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .rightCirkle {
   margin-left: 150%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
+
+/* Headlight indicators (JS toggles visibility via digital mapping).
+   Both low + high beam share the right circle and overlap; high beam
+   supersedes low beam (handled in JS). */
+.beamIcon {
+  visibility: hidden;
+  position: absolute;
+  width: 60%;
+  height: 60%;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scaleX(-1); /* center; lamp faces forward */
+}
+
+.beamIcon .lamp {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 4;
+  stroke-linejoin: round;
+}
+
+.beamIcon line {
+  stroke: currentColor;
+  stroke-width: 4;
+  stroke-linecap: round;
+}
+
+.lowBeamIcon  { color: #4cd137; } /* standard green low-beam tell-tale */
+.highBeamIcon { color: #2f9bff; } /* standard blue high-beam tell-tale */
 
 /* ======================================================
    BLINKERS (JS toggles visibility)
@@ -435,6 +470,29 @@ body {
   top: 48%;
   left: 7%;
   font-size: xx-large;
+}
+
+/* CPU temp + uptime readout, lower-right of the LED controller page */
+#sysStats {
+  position: absolute;
+  right: 20px;
+  bottom: 15px;
+  z-index: 30;
+  font-family: sevenSegment;
+  color: #8b8b8b;
+  display: flex;
+  gap: 30px;
+  align-items: baseline;
+  pointer-events: none;
+}
+
+.sysStatItem {
+  font-size: 4vh;
+}
+
+.sysStatUnit {
+  font-size: 2.5vh;
+  margin-left: 4px;
 }
 
 #dieselTank    { top: 37%; left: 106%; }
@@ -739,6 +797,74 @@ body {
   flex: 1;
   padding: 20px 40px;
   overflow-y: auto;
+}
+
+.settingsTabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+  border-bottom: 2px solid #333;
+}
+
+.settingsTab {
+  background: transparent;
+  border: none;
+  color: #888;
+  font-size: large;
+  padding: 10px 24px;
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -2px;
+}
+
+.settingsTab.active {
+  color: aliceblue;
+  border-bottom-color: #5898eb;
+}
+
+.settingsTabPanel {
+  display: none;
+}
+
+.settingsTabPanel.active {
+  display: block;
+}
+
+.digitalHint {
+  color: #999;
+  margin: 0 0 18px;
+  max-width: 640px;
+}
+
+.blinkerMapRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 14px 0;
+}
+
+.blinkerMapRow label {
+  min-width: 120px;
+  color: aliceblue;
+}
+
+.blinkerMapRow select {
+  min-width: 120px;
+}
+
+.digitalIndicator {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #333;
+  border: 2px solid #555;
+  transition: background 0.1s, border-color 0.1s;
+}
+
+.digitalIndicator.on {
+  background: #5cd65c;
+  border-color: #8f8;
+  box-shadow: 0 0 8px #5cd65c;
 }
 
 .calibSection {

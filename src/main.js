@@ -212,6 +212,19 @@ ipcMain.handle("load-kph-json", () => {
     return jsonData;
 });
 
+// CPU temperature (°C) + program uptime (seconds since app start).
+// On the Raspberry Pi / Linux the SoC temperature is exposed in millidegrees
+// at /sys/class/thermal/thermal_zone0/temp; returns null cpuTemp elsewhere.
+ipcMain.handle("getSystemStats", () => {
+  let cpuTemp = null;
+  try {
+    const milli = fs.readFileSync("/sys/class/thermal/thermal_zone0/temp", "utf8");
+    const c = parseInt(milli, 10) / 1000;
+    if (Number.isFinite(c)) cpuTemp = c;
+  } catch { /* not available on this platform */ }
+  return { cpuTemp, uptime: process.uptime() };
+});
+
 // UI events
 ipcMain.on("quit-app", () => {
   app.quit();

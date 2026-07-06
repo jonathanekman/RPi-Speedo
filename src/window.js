@@ -273,21 +273,10 @@ async function update(){
 
   // $.getJSON(filePath, function(json) {  //Reading Json
     // console.log(json.speed);
-    var fuelcapacity = json.fuel;
     var faults = json.errors;
 
-    document.getElementById("fuelcapacity").innerHTML = fuelcapacity + "%";
-
-    if (json.rightBlinker == 0) {
-      document.getElementById("rightBlinker").style.visibility = "hidden";
-    } else {
-      document.getElementById("rightBlinker").style.visibility = "visible";
-    }
-    if (json.leftBlinker == 0) {
-      document.getElementById("leftBlinker").style.visibility = "hidden";
-    } else {
-      document.getElementById("leftBlinker").style.visibility = "visible";
-    }
+    // Blinkers are driven solely by the digital-input mapping (Settings → Digital),
+    // applied via applyBlinkerMap() on MQTT digital-input messages.
 
     // if (json.kamera == 0) {
     //   document.getElementById("kamera").style.visibility = "hidden";
@@ -1176,9 +1165,15 @@ function handleMQTT(topic, payload) {
 
   // -------- DIGITAL INPUTS --------
   if (topic.startsWith("controllerBox/D")) {
-    const idx = topic.slice(-1); // D0..D7
+    const idx = Number(topic.slice(-1)); // D0..D7
+    const on = payload === "1";
+    if (Number.isInteger(idx) && idx >= 0 && idx < DIGITAL_COUNT) {
+      digitalState[idx] = on;
+    }
     const el = document.getElementById("digital" + idx);
-    if (el) el.classList.toggle("active", payload === "1");
+    if (el) el.classList.toggle("active", on);
+    // Update any blinker animation mapped to this input.
+    applyBlinkerMap();
   }
 
   // -------- ANALOG INPUTS --------
@@ -1219,16 +1214,10 @@ function handleMQTT(topic, payload) {
     updateLiveCalibDisplay();
   }
 
-  // -------- BLINKERS (example) --------
-  if (topic === "controllerBox/D0") {
-    document.getElementById("leftBlinker").style.visibility =
-      payload === "1" ? "visible" : "hidden";
-  }
-
-  if (topic === "controllerBox/D1") {
-    document.getElementById("rightBlinker").style.visibility =
-      payload === "1" ? "visible" : "hidden";
-  }
+  // -------- BLINKERS --------
+  // Which digital input drives which blinker animation is now configurable on
+  // the Settings → Digital tab; the mapping is applied above in the digital
+  // input handler via applyBlinkerMap().
 }
 
 
@@ -1486,6 +1475,131 @@ settingsBtn.addEventListener('click', () => {
 settingsCloseBtn.addEventListener('click', () => {
   settingsPage.classList.remove('open');
 });
+
+/* --- Settings tabs (Analog / Digital) --- */
+const settingsTabs = document.querySelectorAll('.settingsTab');
+const settingsTabPanels = document.querySelectorAll('.settingsTabPanel');
+settingsTabs.forEach(tab => {
+  tab.addEventListener('click', () => {
+    const target = tab.dataset.tab;
+    settingsTabs.forEach(t => t.classList.toggle('active', t === tab));
+    settingsTabPanels.forEach(p =>
+      p.classList.toggle('active', p.dataset.tabPanel === target));
+  });
+});
+
+/* --- Digital input → dashboard indicator mapping --- */
+// Each indicator (blinker animation, low beam, …) can be driven by one digital
+// input (D0–D7) or none, configured on the Settings → Digital tab.
+const DIGITAL_TARGETS = [
+  { key: 'left',     elId: 'leftBlinker',  label: 'Left blinker'  },
+  { key: 'right',    elId: 'rightBlinker', label: 'Right blinker' },
+  { key: 'lowbeam',  elId: 'lowBeam',      label: 'Low beam'      },
+  { key: 'highbeam', elId: 'highBeam',     label: 'High beam'     },
+];
+const DIGITAL_COUNT = 8; // D0..D7
+const digitalState = new Array(DIGITAL_COUNT).fill(false);
+
+const BLINKER_MAP_KEY = 'blinkerMap';
+const defaultBlinkerMap = () => ({ left: 0, right: 1, lowbeam: null, highbeam: null }); // left/right match old hardcoded D0/D1
+let blinkerMap;
+try { blinkerMap = JSON.parse(localStorage.getItem(BLINKER_MAP_KEY)); } catch { blinkerMap = null; }
+if (!blinkerMap || typeof blinkerMap !== 'object') blinkerMap = defaultBlinkerMap();
+// Normalize: each entry is a digital index 0..7 or null (none).
+DIGITAL_TARGETS.forEach(a => {
+  const v = blinkerMap[a.key];
+  blinkerMap[a.key] = Number.isInteger(v) && v >= 0 && v < DIGITAL_COUNT ? v : null;
+});
+
+const blinkerMapList = document.getElementById('blinkerMapList');
+const blinkerIndicators = {}; // key -> indicator span
+
+function buildBlinkerMapUI() {
+  if (!blinkerMapList) return;
+  blinkerMapList.innerHTML = '';
+  DIGITAL_TARGETS.forEach(anim => {
+    const row = document.createElement('div');
+    row.className = 'blinkerMapRow';
+
+    const label = document.createElement('label');
+    label.textContent = anim.label + ':';
+
+    const select = document.createElement('select');
+    const none = document.createElement('option');
+    none.value = '';
+    none.textContent = 'None';
+    select.appendChild(none);
+    for (let i = 0; i < DIGITAL_COUNT; i++) {
+      const opt = document.createElement('option');
+      opt.value = String(i);
+      opt.textContent = 'D' + i;
+      select.appendChild(opt);
+    }
+    select.value = blinkerMap[anim.key] == null ? '' : String(blinkerMap[anim.key]);
+    select.addEventListener('change', () => {
+      blinkerMap[anim.key] = select.value === '' ? null : Number(select.value);
+      localStorage.setItem(BLINKER_MAP_KEY, JSON.stringify(blinkerMap));
+      applyBlinkerMap();
+    });
+
+    const indicator = document.createElement('span');
+    indicator.className = 'digitalIndicator';
+    blinkerIndicators[anim.key] = indicator;
+
+    row.append(label, select, indicator);
+    blinkerMapList.appendChild(row);
+  });
+  applyBlinkerMap();
+}
+
+// Drive each indicator element's visibility + its settings dot from the current
+// digital state and the configured mapping.
+function applyBlinkerMap() {
+  // Raw "is the mapped input active" per target.
+  const active = {};
+  DIGITAL_TARGETS.forEach(t => {
+    const dIdx = blinkerMap[t.key];
+    active[t.key] = dIdx != null && digitalState[dIdx] === true;
+  });
+
+  DIGITAL_TARGETS.forEach(t => {
+    // High beam supersedes low beam: hide the low-beam icon while high beam is on.
+    let visible = active[t.key];
+    if (t.key === 'lowbeam' && active.highbeam) visible = false;
+
+    const el = document.getElementById(t.elId);
+    if (el) el.style.visibility = visible ? 'visible' : 'hidden';
+    // The settings dot reflects raw input activity, per the tab's hint text.
+    const ind = blinkerIndicators[t.key];
+    if (ind) ind.classList.toggle('on', active[t.key]);
+  });
+}
+
+buildBlinkerMapUI();
+
+/* --- System stats: CPU temp + program uptime (LED controller page) --- */
+const cpuTempEl = document.getElementById('cpuTemp');
+const upTimeEl  = document.getElementById('upTime');
+
+function formatUptime(seconds) {
+  const totalMin = Math.floor(seconds / 60);
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  const mm = String(m).padStart(2, '0') + ' Minutes';
+  return h > 0 ? h + ' H, ' + mm : mm;
+}
+
+async function refreshSystemStats() {
+  try {
+    const { cpuTemp, uptime } = await window.api.getSystemStats();
+    if (cpuTempEl) cpuTempEl.textContent = Number.isFinite(cpuTemp) ? Math.round(cpuTemp) : '--';
+    if (upTimeEl)  upTimeEl.textContent  = Number.isFinite(uptime) ? formatUptime(uptime) : '--';
+  } catch (err) {
+    console.error('getSystemStats failed', err);
+  }
+}
+refreshSystemStats();
+setInterval(refreshSystemStats, 5000);
 
 /* --- MQTT graph input calibration --- */
 const mqttRaw = [0, 0, 0, 0];
