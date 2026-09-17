@@ -20,7 +20,12 @@ const http = require('http');
 const os = require('os');
 const { execFile } = require('child_process');
 const QRCode = require('qrcode');
-const { setupPicoLink, restorePicoLink } = require('./picoNet');
+const {
+  setupPicoLink,
+  restorePicoLink,
+  startPicoLinkWatch,
+  stopPicoLinkWatch,
+} = require('./picoNet');
 
 // Use software rendering. The GPU process can fail to launch on some setups
 // (and on the Raspberry Pi's weak GPU), which is fatal for the whole app
@@ -977,7 +982,10 @@ app.whenReady().then(() => {
     if (permission === 'media') return callback(true);
     callback(false);
   });
-  setupPicoLink();
+  // Take the wired NIC first, then keep watching it: NetworkManager hands the
+  // interface to another profile on every cable replug, which would otherwise
+  // strand the Pico dialling an address that no longer exists.
+  setupPicoLink().then(startPicoLinkWatch);
   startMQTTBroker();
   startHelloServer();
   refreshRoofQr();
@@ -1007,6 +1015,9 @@ let netRestored = false;
 app.on('before-quit', (e) => {
   if (netRestored) return;
   e.preventDefault();
+  // Stop watching first, or the watcher would race the restore and take the
+  // NIC straight back after we just released it.
+  stopPicoLinkWatch();
   restorePicoLink()
     .catch(err => console.error('[picoNet] restore failed', err))
     .finally(() => { netRestored = true; app.quit(); });
