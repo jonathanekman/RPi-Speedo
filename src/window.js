@@ -691,6 +691,9 @@ let startY = 0;
 let axis = null;     // 'x' or 'y' — locked once a drag direction is established
 let currentTranslate = -currentPage * window.innerWidth;
 let isDragging = false;
+let gestureStartTarget = null; // element the gesture began on (for tap detection)
+const TAP_SLOP = 12; // px of movement below which a gesture counts as a tap, not a swipe
+let lastTouchAt = 0; // timestamp of the last touch, to ignore the synthetic mouse events that follow it
 
 function setContainerPosition(offsetX) {
   container.style.transform = `translateX(${offsetX}px)`;
@@ -764,6 +767,14 @@ function touchMove(x, y) {
 function touchEnd(x, y) {
   if (!isDragging) return;
   isDragging = false;
+  // A gesture that barely moved is a tap — toggle the speedo camera if it began
+  // on the image/video. A real swipe (below) is owned entirely by the container,
+  // so swiping over the image pages normally instead of activating the camera.
+  if (Math.abs(x - startX) < TAP_SLOP && Math.abs(y - startY) < TAP_SLOP &&
+      gestureStartTarget && gestureStartTarget.closest) {
+    if (gestureStartTarget.closest('#stadjanCam')) closeStadjanCam();
+    else if (gestureStartTarget.closest('#stadjanHit')) openStadjanCam();
+  }
   if (axis === 'y') {
     const dy = y - startY;
     let nextV = currentVPage;
@@ -785,12 +796,17 @@ function touchEnd(x, y) {
 }
 
 /* --- Touch Events --- */
-container.addEventListener("touchstart", e => touchStart(e.touches[0].clientX, e.touches[0].clientY));
+container.addEventListener("touchstart", e => { lastTouchAt = performance.now(); gestureStartTarget = e.target; touchStart(e.touches[0].clientX, e.touches[0].clientY); });
 container.addEventListener("touchmove",  e => touchMove(e.touches[0].clientX, e.touches[0].clientY));
-container.addEventListener("touchend",   e => touchEnd(e.changedTouches[0].clientX, e.changedTouches[0].clientY));
+container.addEventListener("touchend",   e => { lastTouchAt = performance.now(); touchEnd(e.changedTouches[0].clientX, e.changedTouches[0].clientY); });
 
 /* --- Mouse Events (for testing on PC) --- */
-container.addEventListener("mousedown", e => touchStart(e.clientX, e.clientY));
+// A touchscreen fires synthetic mouse events right after a touch; ignoring them
+// prevents a second (phantom) gesture that would immediately re-toggle the camera.
+container.addEventListener("mousedown", e => {
+  if (performance.now() - lastTouchAt < 700) return;
+  gestureStartTarget = e.target; touchStart(e.clientX, e.clientY);
+});
 container.addEventListener("mousemove", e => {
   if (isDragging) touchMove(e.clientX, e.clientY);
 });
@@ -1438,21 +1454,32 @@ const stadjanImg = document.getElementById('stadjanImg');
 const stadjanCam = document.getElementById('stadjanCam');
 const stadjanHit = document.getElementById('stadjanHit');
 
-[stadjanHit, stadjanCam].forEach(el => {
-  el.addEventListener('mousedown', e => e.stopPropagation());
-  el.addEventListener('mouseup',   e => e.stopPropagation());
-});
-
-stadjanHit.addEventListener('click', () => {
+// Tap vs. swipe on the image is decided by the container gesture handler
+// (touchEnd), which owns all touch/mouse gestures — so swiping over the image
+// pages normally, and only a stationary tap toggles the camera. These two
+// functions are the toggle actions it calls.
+function openStadjanCam() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
   stadjanHit.style.display = 'none';
   stadjanCam.style.display = 'block';
-  navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 960 }, height: { ideal: 720 } } }).then(s => {
-    stadjanStream = s;
-    stadjanCam.srcObject = s;
-  });
-});
+  navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 960 }, height: { ideal: 720 } } })
+    .then(s => {
+      stadjanStream = s;
+      stadjanCam.srcObject = s;
+      stadjanCam.muted = true; // some Chromium builds won't autoplay without this
+      const p = stadjanCam.play();
+      if (p && p.catch) p.catch(err => console.error('[stadjanCam] play failed:', err.name, err.message));
+    })
+    .catch(err => {
+      // No camera connected (e.g. on the Pi) — revert to the image instead of
+      // leaving a blank video element covering the dial.
+      console.error('[stadjanCam] getUserMedia failed:', err.name, err.message);
+      stadjanCam.style.display = 'none';
+      stadjanHit.style.display = 'block';
+    });
+}
 
-stadjanCam.addEventListener('click', () => {
+function closeStadjanCam() {
   stadjanCam.style.display = 'none';
   stadjanHit.style.display = 'block';
   if (stadjanStream) {
@@ -1460,7 +1487,7 @@ stadjanCam.addEventListener('click', () => {
     stadjanStream = null;
     stadjanCam.srcObject = null;
   }
-});
+}
 
 /* --- settings page toggle --- */
 const settingsBtn = document.getElementById('settingsBtn');
